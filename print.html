@@ -262,26 +262,37 @@ unsafe trait UnsafeOrd {
 <li>调用非安全函数（包括C语言函数，编译器内联函数，还有直接内存分配等）</li>
 <li>实现非安全trait</li>
 <li>访问或修改可变静态变量</li>
+<li>访问union的字段</li>
 </ul>
-<p>就这些。这些操作被归为非安全的，是因为使用得不正确就会导致可怕的未定义行为。一旦触发了未定义行为，编译器就可以放飞自我，肆意破坏你的程序。切记，一定不能给未定义行为任何的机会。</p>
+<p>就这些。这些操作被归为非安全的，是因为使用得不正确就会导致可怕的未定义行为。一旦触发了未定义行为，编译器就可以放飞自我，肆意破坏你的程序。切记，<em>一定不能</em>给未定义行为任何的机会。</p>
 <p>与C不同，Rust充分限制了可能出现的未定义行为的种类。语言核心只需要防止这几种行为：</p>
 <ul>
-<li>解引用null指针，悬垂指针，或者未赋值的指针</li>
-<li>读取<a href="5.%E6%9C%AA%E5%88%9D%E5%A7%8B%E5%8C%96%E5%86%85%E5%AD%98.html">未初始化的内存</a></li>
+<li>解引用（使用<code>*</code>操作符）悬垂指针或者未赋值的指针（见下文）</li>
 <li>破坏<a href="3.1.%E5%BC%95%E7%94%A8.html">指针混淆规则</a></li>
-<li>创建非法的基本类型：
+<li>使用错误的调用ABI调用函数或使用错误的展开ABI从函数展开</li>
+<li>引起<a href="8.1.%E7%AB%9E%E4%BA%89.html">竞争条件</a></li>
+<li>执行使用<a href="https://doc.rust-lang.org/reference/attributes/codegen.html#the-target_feature-attribute">target_feature</a>编译的代码，但当前执行线程不支持该代码</li>
+<li>创建无效值（单独或作为复合类型的字段，例如<code>enum</code>/<code>struct</code>/array/tuple）：
 <ul>
-<li>悬垂引用与null引用</li>
-<li>空的<code>fn</code>指针</li>
 <li>0和1以外的<code>bool</code>类型值</li>
-<li>未定义的枚举类型的项</li>
-<li>在[0x0,0xD&amp;FF]和[0xE000, 0x10FFFF]以外的<code>char</code>类型值</li>
-<li>非utf-8编码的<code>str</code></li>
+<li>一个带有无效判别式的<code>enum</code></li>
+<li>空的<code>fn</code>指针</li>
+<li>在[0x0,0xD&amp;FF]和[0xE000, 0x10FFFF]范围以外的<code>char</code>类型值</li>
+<li>一个<code>!</code>（所有值对该类型均无效）</li>
+<li>整数（<code>i*</code>/<code>u*</code>），浮点值（<code>f*</code>）或从<a href="5.%E6%9C%AA%E5%88%9D%E5%A7%8B%E5%8C%96%E5%86%85%E5%AD%98.html">未初始化的内存</a>中读取的原始指针，或在<code>str</code>中的未初始化的内存</li>
+<li>悬垂，未赋值或指向无效值的应用/<code>Box</code></li>
+<li>宽引用，<code>Box</code>或具有无效元数据的原始指针：
+<ul>
+<li>如果<code>dyn Trait</code>元数据不是指向<code>Trait</code>的vtable的指针，该指针与引用或指针所指向的实际动态trait相匹配，则该元数据无效</li>
+<li>如果切片长度不是有效的<code>usize</code>，则切片元数据无效（即，不得从未初始化的内存中读取）</li>
 </ul>
 </li>
-<li>不谨慎地调用其他语言</li>
-<li><a href="8.1.%E7%AB%9E%E4%BA%89.html">数据竞争</a></li>
+<li>具有自定义无效值的类型，这些无效值是空值（null）之一，例如<a href="https://doc.rust-lang.org/std/ptr/struct.NonNull.html"><code>NonNull</code></a>（请求自定义无效值是一个不稳定的功能，但是某些稳定的libstd类型，如<code>NonNull</code>，会使用它）</li>
 </ul>
+</li>
+</ul>
+<p>每当值一个值被赋值，被传递给函数/原始操作或从函数/原始操作被返回时，都会发生值“生成”。</p>
+<p>如果引用/指针为空（null）或它指向的所有字节不是同一分配的一部分，则它是“悬垂”的（特别是它们都必须是<em>某些</em>分配的一部分）。它指向的字节范围由指针值和指针类型的大小确定。结果是，如果范围为空，则“悬垂”与“非空”相同。请注意，切片和字符串指向其整个范围，因此，长度元数据永远不要太大（尤其是，分配，切片和字符串不能大于<code>isize::MAX</code>字节）非常重要。如果由于某种原因这太麻烦了，请考虑使用原始指针。</p>
 <p>只有这些。Rust语言自身可以导致未定义行为的操作就只有这些。当然，非安全函数和trait可以声明自己专有的安全规范，要求开发者必须遵守以避免未定义行为。比如，allocator API声明回收一段未分配的内存是未定义行为。</p>
 <p>但是，违背这些专有的规范通常也只是间接地触发上面列出的行为。另外，编译器内联函数也可能引入一些规则，一般是针对代码优化的假设条件。比如，Vec和Box使用的内联函数要求传入的指针永远不能为null。</p>
 <p>Rust对于一些模糊的操作则通常比较宽容。Rust会认为下列操作是安全的：</p>
@@ -292,9 +303,9 @@ unsafe trait UnsafeOrd {
 <li>调用析构函数失败</li>
 <li>整型值溢出</li>
 <li>终止程序</li>
-<li>删除产品数据库</li>
+<li>删除生产数据库</li>
 </ul>
-<p>当然，有以上行为的程序极有可能就是错误的。Rust提供了一系列的工具减少这种事情的发生，但是完全地杜绝它们其实是不现实的。</p>
+<p>当然，有以上行为的程序极有<em>可能</em>就是错误的。Rust提供了一系列的工具减少这种事情的发生，但是完全地杜绝它们其实是不现实的。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/working-with-unsafe.html">https://doc.rust-lang.org/nomicon/working-with-unsafe.html</a></p>
 <h1><a class="header" href="#编写非安全代码" id="编写非安全代码">编写非安全代码</a></h1>
 <p>Rust通常要求我们明确限制非安全Rust代码的作用域。可是，现实情况其实要更复杂一些。举个例子，看一下下面的代码：</p>
