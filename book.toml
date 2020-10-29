@@ -5,4 +5,4 @@ description = "黑魔法之Rust高级与非安全程序设计"
 
 [output.html]
 git-repository-url = "https://github.com/qiwihui/rust-nomicon"
-additional-js = ["gtag.js"]
+google-analytics = "G-ZW7SDJ1RDZ"
