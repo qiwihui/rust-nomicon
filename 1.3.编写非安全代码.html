@@ -170,7 +170,10 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/working-with-unsafe.html">https://doc.rust-lang.org/nomicon/working-with-unsafe.html</a></p>
 <h1><a class="header" href="#编写非安全代码" id="编写非安全代码">编写非安全代码</a></h1>
 <p>Rust通常要求我们明确限制非安全Rust代码的作用域。可是，现实情况其实要更复杂一些。举个例子，看一下下面的代码：</p>
-<pre><code class="language-Rust">fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
     if idx &lt; arr.len() {
         unsafe {
             Some(*arr.get_unchecked(idx))
@@ -179,10 +182,14 @@
         None
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数是安全和正确的。我们检查了索引值有没有越界。如果没有，就从数组中用不安全的方式取出对应的值。我们说这种正确的，不安全地实现的功能是“<em>健全（sound）</em>”，这意味着安全代码无法通过它导致未定义行为（记住，这是安全Rust的唯一基本属性）。</p>
 <p>然而，哪怕是这么简单的一个函数，unsafe代码块的范围也不是绝对明确的。想象一下，如果把 <code>&lt;</code>改成 <code>&lt;=</code>：</p>
-<pre><code class="language-Rust">fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
     if idx &lt;= arr.len() {
         unsafe {
             Some(*arr.get_unchecked(idx))
@@ -191,11 +198,15 @@
         None
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段程序就<em>有潜在的</em>问题了，安全Rust可以造成未定义行为，但我们其实<em>只修改了安全代码</em>。这是安全机制的一个根本性问题：非本地性。意思是，非安全代码的稳定性其实依赖于另一些“安全”代码的状态。</p>
 <p>是否进入非安全代码块，并不受其他部分代码正确性的影响，从这个角度看安全机制是模块化的。比如，是否对一个slice进行不安全索引，不受slice是不是null或者是不是包含未初始化的内存这些事情的影响。但是，由于程序本身是有状态的，非安全操作的结果实际依赖于其他部分的状态，从这个角度看安全机制又是<em>非</em>模块化的。</p>
 <p>在处理持久化状态时，非本地性带来的问题就更加明显了。看一下<code>Vec</code>的一个简单实现：</p>
-<pre><code class="language-Rust">use std::ptr;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::ptr;
 
 // 注意：这个定义十分简单。参考实现Vec的章节
 pub struct Vec&lt;T&gt; {
@@ -217,9 +228,10 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码很简单，便于审查和修改。现在考虑给它添加一个新的方法：</p>
-<pre><code class="language-Rust">fn make_room(&amp;mut self) {
+<pre><code class="language-rust ignore">fn make_room(&amp;mut self) {
     // 增加容量
     self.cap += 1;
 }

@@ -169,30 +169,41 @@
                     <main>
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/other-reprs.html">https://doc.rust-lang.org/nomicon/other-reprs.html</a></p>
 <h1><a class="header" href="#可选的数据表达方式" id="可选的数据表达方式">可选的数据表达方式</a></h1>
-<p>Rust允许你选择其他的数据布局策略。</p>
+<p>Rust允许你选择其他的数据布局策略。还有不安全的代码准则（请注意，这<strong>不是</strong>规范性的）。</p>
 <h2><a class="header" href="#reprc" id="reprc">repr(C)</a></h2>
 <p>这是最重要的一种<code>repr</code>。它的目的很简单，就是和C保持一致。数据的顺序、大小、对齐方式都和你在C或C++中见到的一摸一样。所有你需要通过FFI交互的类型都应该有<code>repr(C)</code>，因为C是程序设计领域的世界语。而且如果我们要在数据布局方面玩一些花活的话，比如把数据重新解析成另一种类型，<code>repr(C)</code>也是很有必要的。</p>
-<p>但是，一定不要忘了Rust的那几个奇行种。<code>repr(C)</code>的存在有双重作用，既为了FFI同时也为了常规的布局控制，所以它可以被应用于那些在FFI中没有意义甚至会产生错误的类型。</p>
+<p>我们强烈建议你使用 <a href="https://rust-lang.github.io/rust-bindgen/">rust-bindgen</a> 和/或 <a href="https://github.com/eqrion/cbindgen">cbindgen</a> 为你管理 FFI 边界。Rust 团队与这些项目紧密合作，以确保它们稳定运行并与当前和将来有关类型布局和表示的保证兼容。</p>
+<p>一定不要忘了Rust的那几个奇行种。<code>repr(C)</code>的存在有双重作用，既为了FFI同时也为了常规的布局控制，所以<code>repr(C)</code>可以被应用于那些在FFI中没有意义甚至会产生错误的类型。</p>
 <ul>
-<li>尽管标准的C语言不支持大小为0的类型，但ZST的尺寸仍然是0。而且它也与C++中的空类型有着明显的不同，C++的空类型还是要占用一个字节的空间的。</li>
-<li>DST的指针（胖指针），元组，和带有成员变量的枚举都是C中没有的，因此也不是FFI安全的。</li>
-<li>如果<code>T</code>是一个<a href="https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization">FFI安全的非空指针</a>,那么<code>Option&lt;T&gt;</code>可以保证和<code>T</code>拥有相同的布局和ABI，当然它也会是FFI安全的。这一规则适用于<code>&amp;</code>, <code>&amp;mut</code>和函数指针等所有非空的指针。</li>
+<li>尽管标准的C语言不支持大小为0的类型，但ZST的尺寸仍然是0。而且它也与C++中的空类型有着明显的不同，C++表示它们仍应占用一个字节的空间。</li>
+<li>DST的指针（宽指针）和元组都是C中没有的，因此也不是FFI安全的。</li>
+<li>带有字段的枚举也不是C或C++中的概念，但是<a href="https://github.com/rust-lang/rfcs/blob/master/text/2195-really-tagged-unions.md">定义了</a>有效的类型桥接。</li>
+<li>如果<code>T</code>是一个<a href="https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization">FFI安全的非空指针</a>，那么<code>Option&lt;T&gt;</code>可以保证和<code>T</code>拥有相同的布局和ABI，当然它也会是FFI安全的。这一规则适用于<code>&amp;</code>, <code>&amp;mut</code>和函数指针等所有非空的指针。</li>
 <li>在<code>repr(C)</code>中元组结构体与结构体基本相同，唯一的不同是其成员都是未命名的。</li>
-<li>对于枚举的处理和<code>repr(u*)</code>是相同的（见下一节）。选择的类型尺寸等于目标平台上C的应用二进制接口(ABI)的默认枚举尺寸。注意C中枚举的数据布局是确定的，所以这确实是一种“最合理的假设”。不过，当目标C代码编译时加了一些特殊的编译器参数时，这一点可能就不正确了。</li>
+<li>对于无字段的枚举，<code>repr(C)</code>和<code>repr(u*)</code>是相同的（见下一节）。选择的类型尺寸等于目标平台上C的应用二进制接口(ABI)的默认枚举尺寸。注意C中枚举的数据布局是确定的，所以这确实是一种“最合理的假设”。不过，当目标C代码编译时加了一些特殊的编译器参数时，这一点可能就不正确了。</li>
 <li><code>repr(C)</code>和<code>repr(u*)</code>中无成员的枚举不能被赋值为一个没有对应变量的整数，尽管在C\C++中这是一种合法的行为。构建一个没有对应变量的枚举类型实例属于未定义行为。（对于存在准确匹配的值是允许正常编写和编译的）</li>
 </ul>
+<h2><a class="header" href="#reprtransparent" id="reprtransparent">repr(transparent)</a></h2>
+<p>这只能用于具有单个非零大小字段（可能存在其他零大小字段）的结构。这样做的结果是，整个结构的布局和 ABI 保证与该字段相同。</p>
+<p>目的是使在单个字段和结构之间转换成为可能。一个例子是[ʻUnsafeCell`]，可以将其转换为它包装的类型。</p>
+<p>同样，在另一侧需要内部字段类型的地方，通过FFI传递结构体保证可以工作。特别是，对于 <code>struct Foo(f32)</code> 始终具有与 <code>f32</code> 相同的ABI是必要的。</p>
+<p>更多详细信息，请参见<a href="https://github.com/rust-lang/rfcs/blob/master/text/1758-repr-transparent.md">RFC</a>。</p>
 <h2><a class="header" href="#repru-repri" id="repru-repri">repr(u*), repr(i*)</a></h2>
 <p>这两个可以指定无成员枚举的大小。如果枚举变量对应的整数值对于设定的大小越界了，将产生一个编译期错误。你可以手工设置越界的元素为0以避免编译错误，不过要注意Rust是不允许一个枚举中的两个变量拥有相同的值的。</p>
 <p>“无成员枚举”的意思是枚举的每一个变量里都不关联数据。不指定<code>repr(u*)</code>或<code>repr(i*)</code>的无成员枚举依然是一个Rust的合法原生类型，它们都没有固定的ABI表示方法。给它们指定<code>repr</code>使其有了固定的类型大小，方便在ABI中使用。</p>
-<p>Rust中所有有成员的枚举都没有确定的ABI表示方式（即使关联的数据只是<code>PhantomData</code>或者零尺寸类型的数据）。</p>
+<p>如果枚举包含字段，则其效果类似于<code>repr(C)</code>的效果，因为存在类型的已定义布局。这样就可以将枚举传递给C代码，或访问类型的原始表示并直接操作其标记和字段。有关详细信息，请参见<a href="https://github.com/rust-lang/rfcs/blob/master/text/2195-really-tagged-unions.md">RFC</a>。</p>
 <p>为枚举显式指定<code>repr</code>后空指针优化将不再起作用。</p>
 <p>这些<code>repr</code>对于结构体无效。</p>
 <h2><a class="header" href="#reprpacked" id="reprpacked">repr(packed)</a></h2>
 <p><code>repr(packed)</code>强制Rust不填充空数据，各个类型的数据紧密排列。这样有助于提升内存的使用效率，但很可能会导致其他的副作用。</p>
-<p>尤其是大部分平台都强烈建议数据对齐。这意味着加载未对齐的数据会很低效（x86)，甚至是错误的(一些ARM芯片)。像直接加载或存储打包的(packed)成员变量这种简单的场景，编译器可能可以用shift和mask等方式隐藏对齐问题。但是如果是使用一个打包的变量的引用，编译器很可能没办法避免未对齐加载问题。</p>
-<p><a href="https://github.com/rust-lang/rust/issues/27060"><strong>在Rust 1.0中这会导致未定义行为</strong></a></p>
+<p>尤其是大部分平台都<em>强烈</em>建议数据对齐。这意味着加载未对齐的数据会很低效（x86)，甚至是错误的(一些ARM芯片)。像直接加载或存储打包的(packed)成员变量这种简单的场景，编译器可能可以用shift和mask等方式隐藏对齐问题。但是如果是使用一个打包的变量的引用，编译器很可能没办法避免未对齐加载问题。</p>
+<p><a href="https://github.com/rust-lang/rust/issues/27060"><strong>在 Rust 2018 中这会导致未定义行为</strong></a></p>
 <p><code>repr(packed)</code>不应该随便使用。只有在你有一些极端的需求的情况下才该用它。</p>
 <p>这个repr是<code>repr(C)</code>和<code>repr(Rust)</code>的修饰器。</p>
+<h2><a class="header" href="#repralignn" id="repralignn">repr(align(n))</a></h2>
+<p><code>repr(align(n))</code>（其中<code>n</code>是2的幂）强制类型具有<em>至少</em> n 的对齐方式。</p>
+<p>这可以实现多种技巧，例如确保数组的相邻元素永远不会彼此共享同一条缓存行（这可以加快某些种类的并发代码的速度）。</p>
+<p>这是<code>repr(C)</code>和<code>repr(rust)</code>的修饰符，与<code>repr(packed)</code>不兼容。</p>
 
                     </main>
 

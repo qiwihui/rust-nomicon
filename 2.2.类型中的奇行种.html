@@ -169,49 +169,90 @@
                     <main>
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/exotic-sizes.html">https://doc.rust-lang.org/nomicon/exotic-sizes.html</a></p>
 <h1><a class="header" href="#类型中的奇行种" id="类型中的奇行种">类型中的奇行种</a></h1>
-<p>大部分情况下，我们考虑的都是拥有固定的正数尺寸的类型。但是，并非所有类型都是这样。</p>
+<p>在大多数情况下，我们希望类型具有静态已知的正数尺寸。在 Rust 中，情况并非总是如此。</p>
 <h2><a class="header" href="#动态尺寸类型dst-dynamically-sized-type" id="动态尺寸类型dst-dynamically-sized-type">动态尺寸类型(DST, Dynamically Sized Type)</a></h2>
-<p>Rust支持动态尺寸类型，即不能静态获取尺寸或对齐属性的类型。乍一看，这事有点荒谬——Rust必须知道一种类型的大小和对齐方式才能正确地使用它啊！从这一点来看，DST不是一个普通的类型。由于类型大小是未知的，只能通过某种指针来访问它。所以，一个指向DST的指针是一个“胖”指针，它包含指针本身和一些额外的信息（具体请往下看）。</p>
-<p>语言提供了两种主要的DST：trait对象和slice。</p>
-<p>trait对象表示实现了某种指定trait的类型。具体的类型被擦除了，取而代之的是运行期的一个虚函数表，表中包含了使用这种类型所有必要的信息。这就是trai对象的额外信息：一个指向虚函数表的指针。</p>
-<p>slice简单来说是一个连续存储结构的视图——最典型的连续存储结构是数组或<code>Vec</code>。slice对应的额外信息就是它所指向元素的数量。</p>
+<p>Rust支持动态尺寸类型，即不能静态获取尺寸或对齐属性的类型。乍一看，这事有点荒谬——Rust必须知道一种类型的大小和对齐方式才能正确地使用它啊！从这一点来看，DST不是一个普通的类型。由于类型大小是未知的，只能通过指针来访问它。所以，一个指向DST的指针是一个“宽”指针，它包含指针本身和一些额外的信息（具体请往下看）。</p>
+<p>语言提供了两种主要的DST：</p>
+<ul>
+<li>trait对象：<code>dyn MyTrait</code></li>
+<li>slices：<a href="https://doc.rust-lang.org/std/primitive.slice.html"><code>[T]</code></a>, <a href="../std/primitive.str.html"><code>str</code></a>，以及其他</li>
+</ul>
+<p>trait对象表示实现了某种指定trait的类型。具体的类型被擦除了，取而代之的是运行期的一个虚函数表，表中包含了使用这种类型所有必要的信息。使trait对象指针完整的信息是vtable指针。可以从vtable动态请求指针指向的对象的运行时大小。</p>
+<p>slice简单来说是一个连续存储结构的视图——最典型的连续存储结构是数组或<code>Vec</code>。使slice指针完整的信息只是它指向的元素个数。指针指向的对象的运行时大小是元素的静态已知大小乘以元素个数。</p>
 <p>结构体可以在最后的位置上保存一个DST，但是这样结构体本身也就变成了一个DST。</p>
-<pre><code class="language-Rust">// 不能直接存储在栈上
-struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 不能直接存储在栈上
+struct MySuperSlice {
     info: u32,
     data: [u8],
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
+<p>尽管这种类型没有构造方法时在很大程度上没有用。当前，唯一受支持的创建自定义 DST 的方法是使你的类型变得通用，并执行<em>强制大小调整（unsizing coercion）</em>：</p>
+<pre><pre class="playground"><code class="language-rust">struct MySuperSliceable&lt;T: ?Sized&gt; {
+    info: u32,
+    data: T,
+}
+
+fn main() {
+    let sized: MySuperSliceable&lt;[u8; 8]&gt; = MySuperSliceable {
+        info: 17,
+        data: [0; 8],
+    };
+
+    let dynamic: &amp;MySuperSliceable&lt;[u8]&gt; = &amp;sized;
+
+    // prints: &quot;17 [0, 0, 0, 0, 0, 0, 0, 0]&quot;
+    println!(&quot;{} {:?}&quot;, dynamic.info, &amp;dynamic.data);
+}
+</code></pre></pre>
+<p>（是的，自定义DST目前基本上是半成品。）</p>
 <h2><a class="header" href="#零尺寸类型zst-zero-sized-type" id="零尺寸类型zst-zero-sized-type">零尺寸类型(ZST, Zero Sized Type)</a></h2>
-<p>Rust实际允许一种类型不占用内存空间：</p>
-<pre><code class="language-Rust">struct Foo; // 没有成员 = 没有尺寸
+<p>Rust也允许一种类型不占用内存空间：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Nothing; // 没有成员 = 没有尺寸
 
 // 所有成员都没有尺寸 = 没有尺寸
-struct Baz {
-    foo: Foo,
+struct LotsOfNothing {
+    foo: Nothing,
     qux: (),      // 空元组没有尺寸
     baz: [u8; 0], // 空数组没有尺寸
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>对于其自身来说，ZST显然没有任何用处。但是，和Rust中许多奇怪的布局选项一样，它的作用只在特定的上下文中才能体现：Rust认为所有产生或存储ZST的操作都可以被视为无操作(no-op)。首先，存储它没有什么意义——它又不占用空间。而且这种类型实际上只有一个值，所以加载它的操作可以凭空变一个值出来——而这种操作依然是no-op，因为产生的值不占用空间。</p>
 <p>ZST的一个最极端的例子是Set和Map。已经有了类型<code>Map&lt;Key, Value&gt;</code>，那么要实现<code>Set&lt;Key, Value&gt;</code>的通常做法是简单封装一个<code>Map&lt;Key, UselessJunk&gt;</code>。很多语言不得不给UselessJunk分配空间，还要存储、加载它，然后再什么都不做直接丢弃它。编译器很难判断出这些行为实际是不必要的。</p>
 <p>但是在Rust里，我们可以直接认为<code>Set&lt;Key&gt; = Map&lt;Key, ()&gt;</code>。Rust静态地知道所有加载和存储操作都毫无用处，也不会真的分配空间。结果就是，这段范型代码直接就是HashSet的一种实现，不需要HashMap对值做什么多余的处理。</p>
-<p>安全代码不用关注ZST，但是非安全代码必须考虑零尺寸类型带来的影响。特别注意，计算指针的偏移量是no-op，标准的内存分配器（Rust默认使用jemalloc）在需要分配空间大小为0时可能返回<code>nullptr</code>，很难区分究竟是这种情况还是内存不足。</p>
+<p>安全代码不用关注ZST，但是非安全代码必须考虑零尺寸类型带来的影响。特别是，指针偏移量是无操作的（no-ops），分配器通常<a href="https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#tymethod.alloc">需要一个非零尺寸</a>。</p>
+<p>请注意，与所有其他引用一样，对 ZST 的引用（包括空切片）必须为非null并适当对齐。解引用 ZST 的空指针或未对齐的指针是<a href="what-unsafe-does.html">未定义的行为</a>，就像其他任何类型一样。</p>
 <h2><a class="header" href="#空类型" id="空类型">空类型</a></h2>
 <p>Rust甚至也支持不能被实例化的类型。这种类型只有类型，而没有对应的值。空类型可以通过指定没有变量的枚举来声明它：</p>
-<pre><code class="language-Rust">enum Void {} // 没有变量 = 空类型
-</code></pre>
-<p>空类型比ZST更加少见。一个主要的应用场景是在类型层面声明不可到达性(unreachability)。比如，假设一个API一般需要返回一个Result，但是在某个特殊场景下它是绝对不会出错的。这种情况在类型层面的处理方法是将返回值设为<code>Result&lt;T, Void&gt;</code>。因为不可能产生一个<code>Void</code>类型的值，所以返回值不可能是一个<code>Err</code>。知道了这一点，API的调用者就可以信心十足地使用<code>unwrap</code>。</p>
-<p>原则上来说，Rust可以基于这一点做一些很有意思的分析和优化。比如，<code>Result&lt;T, Void&gt;</code>可以表示成 <code>T</code>，因为实际上不存在返回<code>Err</code>的情况。下面的代码曾经也可以成功编译：</p>
-<pre><code class="language-Rust">enum Void {}
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum Void {} // 没有变量 = 空类型
+<span class="boring">}
+</span></code></pre></pre>
+<p>空类型比ZST更加少见。空类型一个主要的应用场景是在类型层面声明不可到达性(unreachability)。比如，假设一个API一般需要返回一个Result，但是在某个特殊场景下它是绝对不会出错的。这种情况在类型层面的处理方法是将返回值设为<code>Result&lt;T, Void&gt;</code>。因为不可能产生一个<code>Void</code>类型的值，所以返回值不可能是一个<code>Err</code>。知道了这一点，API的调用者就可以信心十足地使用<code>unwrap</code>。</p>
+<p>原则上来说，Rust可以基于这一点做一些很有意思的分析和优化。比如，<code>Result&lt;T, Void&gt;</code>表示成 <code>T</code>，因为实际上不存在返回<code>Err</code>的情况（严格来说，这只是一个无法保证的优化，因此例如将一个转换为另一个仍然是未定义的行为）。</p>
+<p>下面的代码也<em>可以</em>成功编译：</p>
+<pre><code class="language-rust ignore">enum Void {}
 
 let res: Result&lt;u32, Void&gt; = Ok(0);
 
 // 不存在Err的情况，所以Ok实际上永远都能匹配成功
 let Ok(num) = res;
 </code></pre>
-<p>但是现在这些把戏已经不让玩了。所以Void唯一的用处就是明确地告诉你某些情况永远不会发生。</p>
-<p>关于空类型的最后一个坑，创建指向空类型的裸指针实际上是合法的，但是对它解引用是一个未定义行为，因为这么做没有任何意义。也就是说，你可以使用<code>*const Void</code>模拟C语言的<code>void *</code>类型，但是使用<code>*const ()</code>却不会得到任何东西，因为这个函数对于随机解引用是安全的。</p>
+<p>但是现在这些把戏已经不行了。</p>
+<p>关于空类型的最后一个需要注意的地方是，创建指向空类型的裸指针实际上是合法的，但是对它解引用是一个未定义行为，因为这么做没有任何意义。</p>
+<p>我们建议不要使用 <code>*const Void</code> 对 C 的 <code>void*</code> 类型进行建模。很多人刚开始时这样做，但很快就遇到了麻烦，因为 Rust 真的没有任何安全防范措施，无法尝试使用不安全的代码实例化空类型，如果你这样做，那就是未定义的行为。这尤其成问题，因为开发人员习惯于将原始指针转换为引用，并且构造 <code>&amp;Void</code> <em>也</em>是未定义的行为。</p>
+<p><code>*const ()</code>（或等效变量）对于 <code>void*</code> 的效果相当好，并且可以作为应用而没有任何安全问题。它仍然不会阻止你尝试读取或写入值，但至少它会编译为无操作而不是未定义的行为。</p>
+<h2><a class="header" href="#外部类型extern-types" id="外部类型extern-types">外部类型（Extern Types）</a></h2>
+<p><a href="https://github.com/rust-lang/rfcs/blob/master/text/1861-extern-types.md">公认的 RFC</a> 可以添加大小未知的适当类型，称为<em>外部类型</em>，这将使 Rust 开发人员可以对C的<code>void*</code>和其他“声明但从未定义”的类型进行更准确的建模。但是从 Rust 2018 开始，该功能因 <code>size_of::&lt;MyExternType&gt;()</code> 的行为而陷入困境。</p>
 
                     </main>
 

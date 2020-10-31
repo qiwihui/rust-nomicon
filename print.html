@@ -243,12 +243,16 @@
 <p>而反过来，<code>BTreeMap</code>的键类型是一个范型。信任它意味着要信任过去、现在和未来的所有的<code>Ord</code>的实现。这种风险就很高了：来自世界某个角落的路人甲可能在实现<code>Ord</code>时不小心犯了一个错误，或者他可能觉得代码“差不多没什么问题”就贸然声称它实现了完整排序。<code>BTreeMap</code>必须时刻准备着面对这些情况。</p>
 <p>上述逻辑同样适用于是否应该信任外部传递的闭包。</p>
 <p>非安全trait的出现就是为了解决这一类不受限的信任问题。<code>BTreeMap</code>理论上可以要求键实现一个新的叫做<code>UnsafeOrd</code>的trait，而不是现在的<code>Ord</code>。代码可能像这样</p>
-<pre><code class="language-Rust">use std::cmp::Ordering;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::cmp::Ordering;
 
 unsafe trait UnsafeOrd {
     fn cmp(&amp;self, other: &amp;Self) -&gt; Ordering;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>接下来，一个类型要使用<code>unsafe</code>关键字实现<code>UnsafeOrd</code>，表明其实现符合trait要求的各种安全规范。这时，<code>BTreeMap</code>的内部就可以合理地信任键的类型对于<code>UnsafeOrd</code>的实现是正确的。如果真的出错了，这个锅将由实现非安全trait的开发者来背，与Rust自身的安全机制并不冲突。</p>
 <p>一个trait是否应该标志为<code>unsafe</code>是API设计上的选择。Rust通常会尽量避免这么做，因为它会导致非安全Rust的滥用，这并不是设计者们希望看到的。<code>Send</code>和<code>Sync</code>被标识为非安全是因为线程安全性是一个<em>底层特性</em>，非安全代码不太可能有效地检查它，并不像检查<code>Ord</code>的错误实现那样容易。同样，<code>GlobalAllocator</code>保留程序中所有内存的帐户，并在其顶部构建诸如<code>Box</code>或<code>Vec</code>之类的其他内容。如果它做一些奇怪的事情（当一个请求仍在使用时将相同的内存分配给另一个请求），则没有机会检测到该问题并对此采取任何措施。</p>
 <p>你也可以根据类似的标准判断是否要把你自己的trait标为<code>unsafe</code>。如果让安全代码去检查trait实现的正确性不太现实，那么把trait标为<code>unsafe</code>就是合理的。</p>
@@ -309,7 +313,10 @@ unsafe trait UnsafeOrd {
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/working-with-unsafe.html">https://doc.rust-lang.org/nomicon/working-with-unsafe.html</a></p>
 <h1><a class="header" href="#编写非安全代码" id="编写非安全代码">编写非安全代码</a></h1>
 <p>Rust通常要求我们明确限制非安全Rust代码的作用域。可是，现实情况其实要更复杂一些。举个例子，看一下下面的代码：</p>
-<pre><code class="language-Rust">fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
     if idx &lt; arr.len() {
         unsafe {
             Some(*arr.get_unchecked(idx))
@@ -318,10 +325,14 @@ unsafe trait UnsafeOrd {
         None
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数是安全和正确的。我们检查了索引值有没有越界。如果没有，就从数组中用不安全的方式取出对应的值。我们说这种正确的，不安全地实现的功能是“<em>健全（sound）</em>”，这意味着安全代码无法通过它导致未定义行为（记住，这是安全Rust的唯一基本属性）。</p>
 <p>然而，哪怕是这么简单的一个函数，unsafe代码块的范围也不是绝对明确的。想象一下，如果把 <code>&lt;</code>改成 <code>&lt;=</code>：</p>
-<pre><code class="language-Rust">fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn index(idx: usize, arr: &amp;[u8]) -&gt; Option&lt;u8&gt; {
     if idx &lt;= arr.len() {
         unsafe {
             Some(*arr.get_unchecked(idx))
@@ -330,11 +341,15 @@ unsafe trait UnsafeOrd {
         None
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段程序就<em>有潜在的</em>问题了，安全Rust可以造成未定义行为，但我们其实<em>只修改了安全代码</em>。这是安全机制的一个根本性问题：非本地性。意思是，非安全代码的稳定性其实依赖于另一些“安全”代码的状态。</p>
 <p>是否进入非安全代码块，并不受其他部分代码正确性的影响，从这个角度看安全机制是模块化的。比如，是否对一个slice进行不安全索引，不受slice是不是null或者是不是包含未初始化的内存这些事情的影响。但是，由于程序本身是有状态的，非安全操作的结果实际依赖于其他部分的状态，从这个角度看安全机制又是<em>非</em>模块化的。</p>
 <p>在处理持久化状态时，非本地性带来的问题就更加明显了。看一下<code>Vec</code>的一个简单实现：</p>
-<pre><code class="language-Rust">use std::ptr;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::ptr;
 
 // 注意：这个定义十分简单。参考实现Vec的章节
 pub struct Vec&lt;T&gt; {
@@ -356,9 +371,10 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码很简单，便于审查和修改。现在考虑给它添加一个新的方法：</p>
-<pre><code class="language-Rust">fn make_room(&amp;mut self) {
+<pre><code class="language-rust ignore">fn make_room(&amp;mut self) {
     // 增加容量
     self.cap += 1;
 }
@@ -372,9 +388,12 @@ impl&lt;T&gt; Vec&lt;T&gt; {
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/data.html">https://doc.rust-lang.org/nomicon/data.html</a></p>
 <h1><a class="header" href="#rust中的数据表示" id="rust中的数据表示">Rust中的数据表示</a></h1>
 <p>底层编程经常需要关注数据布局。它非常重要，而且会影响这门语言的方方面面。所以我们将从Rust中数据的表示方式开始讨论。</p>
+<p>理想情况下，本章与<a href="https://doc.rust-lang.org/reference/type-layout.html">语言参考的类型布局</a>部分保持一致，并更加充分。最初编写本书时，该参考完全失修了，本书试图部分替代该参考。现在情况不再如此，因此可以理想地删除整章。</p>
+<p>我们会将本章保留更长的时间，但理想情况下，你应该为语言参考贡献任何新的事实或改进。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/repr-rust.html">https://doc.rust-lang.org/nomicon/repr-rust.html</a></p>
 <h1><a class="header" href="#reprrust" id="reprrust">repr(Rust)</a></h1>
-<p>首先，每种类型都有一个数据对齐属性(alignment)。一种类型的对齐属性决定了哪些内存地址可以合法地存储该类型的值。如果对齐属性是n，那么它的值的存储地址必须是n的倍数。所以，对齐属性2表示值只能存储在偶数地址里，1表示值可以存储在任何的地方。对齐属性最小为1，并且永远是2的整数次幂。虽然不同平台的行为可能会不同，但大部分情况下基础类型都是按照它的类型大小对齐的。特别的是，在x86平台上<code>u64</code>和<code>f64</code>都是按照32位对齐的。</p>
+<p>首先，每种类型都有一个数据对齐属性(alignment)。一种类型的对齐属性决定了哪些内存地址可以合法地存储该类型的值。如果对齐属性是<code>n</code>，那么它的值的存储地址必须是<code>n</code>的倍数。所以，对齐属性2表示值只能存储在偶数地址里，1表示值可以存储在任何的地方。对齐属性最小为1，并且永远是2的整数次幂。</p>
+<p>虽然不同平台的行为可能会不同，但基础类型通常都是按照它的类型大小对齐的。比如，在x86平台上<code>u64</code>和<code>f64</code>都是按照4字节（32位）对齐的。</p>
 <p>一种类型的大小都是它对齐属性的整数倍，这保证了这种类型的值在数组中的偏移量都是其类型尺寸的整数倍，可以按照偏移量进行索引。需要注意的是，<a href="https://doc.rust-lang.org/nomicon/exotic-sizes.html#dynamically-sized-types-dsts">动态尺寸类型</a>的大小和对齐可能无法静态获取。</p>
 <p>Rust有如下几种复合类型：</p>
 <ul>
@@ -382,17 +401,25 @@ impl&lt;T&gt; Vec&lt;T&gt; {
 <li>元组（匿名的复合类型 anonymous product types）</li>
 <li>数组（同类型数据集合 homogeneous product types）</li>
 <li>枚举（带命名的标签联合体 named sum types -- tagged unions）</li>
+<li>联合体（不带标签联合体，untagged unions）</li>
 </ul>
-<p>如果枚举类型的变量没有关联数据，它就被称之为无成员枚举。</p>
-<p>结构体的对齐属性等于它所有成员的对齐属性中最大的那个。Rust会在必要的位置填充空白数据，以保证每一个成员都正确地对齐，同时整个类型的尺寸是对齐属性的整数倍。例如：</p>
-<pre><code class="language-Rust">struct A {
+<p>如果枚举类型的变量没有关联数据，它就被称之为*无成员（field-less）*枚举。</p>
+<p>默认情况下，复合结构的对齐属性等于它所有成员的对齐属性中最大的那个。Rust会在必要的位置填充空白数据，以保证每一个成员都正确地对齐，同时整个类型的尺寸是对齐属性的整数倍。例如：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct A {
     a: u8,
     b: u32,
     c:u16,
 }
-</code></pre>
-<p>在对齐属性与类型尺寸相同的平台上，这个结构体会按照32位对齐。整个结构体的类型尺寸是32位的整数倍。它实际会转变成这样：</p>
-<pre><code class="language-Rust">struct A {
+<span class="boring">}
+</span></code></pre></pre>
+<p>在对齐属性与类型尺寸相同的平台上，这个目标会按照32位对齐。整个结构体的类型尺寸是32位的整数倍。它可能会转变成：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct A {
     a: u8,
     _pad1: [u8; 3], // 为了对齐b
     b: u32,
@@ -400,9 +427,25 @@ impl&lt;T&gt; Vec&lt;T&gt; {
     _pad2: [u8; 2], // 保证整体类型尺寸是4的倍数
                     // （译注：原文就是“4的倍数”，但似乎“32的倍数”才对）
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
+<p>或者可能是：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct A {
+    b: u32,
+    c: u16,
+    a: u8,
+    _pad: u8,
+}
+<span class="boring">}
+</span></code></pre></pre>
 <p>这里所有的类型都是直接存储在结构体中的，成员类型和结构体之间没有其他的中介。这一点和C是一样的。但是除了数组以外（数组的子类型总是按顺序紧密排列），其他的复合类型的数据分布规则并不一定是固定不变的。对于下面两个结构体定义：</p>
-<pre><code class="language-Rust">struct A {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct A {
     a: i32,
     b: u64,
 }
@@ -411,18 +454,23 @@ struct B {
     a: i32,
     b: u64,
 }
-</code></pre>
-<p>Rust可以保证A的两个实例的数据布局是完全相同的。但是Rust目前不保证A的实例和B的实例有着一样的数据填充和成员顺序，虽然看起来他们似乎就应该是一样的才对。</p>
+<span class="boring">}
+</span></code></pre></pre>
+<p>Rust可以保证A的两个实例的数据布局是完全相同的。但是Rust目前不保证A的实例和B的实例有着一样的数据填充和成员顺序。</p>
 <p>对于上面的A和B来说，这一点大概显得莫名其妙。可是当Rust要处理更复杂的数据布局问题时，它就变得很有必要了。</p>
 <p>例如，对于这个结构体：</p>
-<pre><code class="language-Rust">struct Foo&lt;T, U&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Foo&lt;T, U&gt; {
     count: u16,
     data1: T,
     data2: U,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>现在考虑范型<code>Foo&lt;u32, u16&gt;</code>和<code>Foo&lt;u16, u32&gt;</code>。如果Rust按照代码中指定的顺序布局结构体成员，那么它就必须填充数据以符合对齐规则。所以，如果Rust不改变成员顺序的话，他们实际上会变成这样：</p>
-<pre><code class="language-Rust">struct Foo&lt;u16, u32&gt; {
+<pre><code class="language-rust ignore">struct Foo&lt;u16, u32&gt; {
     count: u16,
     data1: u16,
     data2: u32,
@@ -436,94 +484,154 @@ struct Foo&lt;u32, u16&gt; {
     _pad2: u16,
 }
 </code></pre>
-<p>后者显然太浪费内存了。所以，内存优化原则要求不同的范型可以有不同的成员顺序。</p>
+<p>后者显然太浪费内存了。内存优化原则要求不同的范型可以有不同的成员顺序。</p>
 <p>枚举把这件事搞得更复杂了。举一个简单的枚举类型为例：</p>
-<pre><code class="language-Rust">enum Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum Foo {
     A(u32),
     B(u64),
     C(u8),
 }
-</code></pre>
-<p>它的布局会是这样：</p>
-<pre><code class="language-Rust">struct FooRepr {
+<span class="boring">}
+</span></code></pre></pre>
+<p>它的布局可能会是这样：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct FooRepr {
     data: u64, // 根据tag的不同，这一项可以为u64，u32，或者u8
     tag: u8, // 0 = A, 1 = B, 2 = C
 }
-</code></pre>
-<p>这也确实就是一般情况下枚举的布局方式。</p>
-<p>但是，在很多情况下这种表达方式并不是效率最高的。一个典型场景就是Rust的“null指针优化”：如果一个枚举类型只包含一个单值变量（比如<code>None</code>）和一个（级联的）非null指针变量（比如<code>&amp;T</code>），那么tag其实是不需要的，因为那个单值变量完全可以用null指针来表示。所以，<code>size_of::&lt;Option&lt;&amp;T&gt;&gt;() == size_of::&lt;&amp;T&gt;()</code>，这个比较的结果是正确的。</p>
-<p>Rust中的许多类型都包含或者本身就是非null指针，比如<code>Box&lt;T&gt;</code>，<code>Vec&lt;T&gt;</code>，<code>String</code>，<code>&amp;T</code>以及<code>&amp;mut T</code>。同样的，你或许也能想到，对于级联的枚举类型，Rust会把多个tag变量合并为一个，因为它们本来就只有几个有限的可能取值。大体说来，枚举类型会运用复杂的算法确定各种级联类型的二进制表达方法。因为这件事很重要，我们把枚举的问题留到后面讨论。</p>
+<span class="boring">}
+</span></code></pre></pre>
+<p>这也确实就是枚举的布局方式。</p>
+<p>但是，在很多情况下这种表达方式并不是效率最高的。一个典型场景就是Rust的“null指针优化”：如果一个枚举类型只包含一个单值变量（比如<code>None</code>）和一个（潜在级联的）非null指针变量（比如<code>Some(&amp;T)</code>），那么tag其实是不需要的。一个null指针完全可以用单值（unit）（<code>None</code>）变量来表示。所以，<code>size_of::&lt;Option&lt;&amp;T&gt;&gt;() == size_of::&lt;&amp;T&gt;()</code>，这个比较的结果是正确的。</p>
+<p>Rust中的许多类型都包含或者本身就是非null指针，比如<code>Box&lt;T&gt;</code>，<code>Vec&lt;T&gt;</code>，<code>String</code>，<code>&amp;T</code>以及<code>&amp;mut T</code>。同样的，你或许也能想到，对于级联的枚举类型，Rust会把多个tag变量合并为一个，因为它们本来就只有几个有限的可能取值。原则上，枚举类型可以使用相当复杂的算法来存储具有禁止值的整个嵌套类型中的二进制。因为这件事很重要，我们把枚举的问题留到后面讨论。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/exotic-sizes.html">https://doc.rust-lang.org/nomicon/exotic-sizes.html</a></p>
 <h1><a class="header" href="#类型中的奇行种" id="类型中的奇行种">类型中的奇行种</a></h1>
-<p>大部分情况下，我们考虑的都是拥有固定的正数尺寸的类型。但是，并非所有类型都是这样。</p>
+<p>在大多数情况下，我们希望类型具有静态已知的正数尺寸。在 Rust 中，情况并非总是如此。</p>
 <h2><a class="header" href="#动态尺寸类型dst-dynamically-sized-type" id="动态尺寸类型dst-dynamically-sized-type">动态尺寸类型(DST, Dynamically Sized Type)</a></h2>
-<p>Rust支持动态尺寸类型，即不能静态获取尺寸或对齐属性的类型。乍一看，这事有点荒谬——Rust必须知道一种类型的大小和对齐方式才能正确地使用它啊！从这一点来看，DST不是一个普通的类型。由于类型大小是未知的，只能通过某种指针来访问它。所以，一个指向DST的指针是一个“胖”指针，它包含指针本身和一些额外的信息（具体请往下看）。</p>
-<p>语言提供了两种主要的DST：trait对象和slice。</p>
-<p>trait对象表示实现了某种指定trait的类型。具体的类型被擦除了，取而代之的是运行期的一个虚函数表，表中包含了使用这种类型所有必要的信息。这就是trai对象的额外信息：一个指向虚函数表的指针。</p>
-<p>slice简单来说是一个连续存储结构的视图——最典型的连续存储结构是数组或<code>Vec</code>。slice对应的额外信息就是它所指向元素的数量。</p>
+<p>Rust支持动态尺寸类型，即不能静态获取尺寸或对齐属性的类型。乍一看，这事有点荒谬——Rust必须知道一种类型的大小和对齐方式才能正确地使用它啊！从这一点来看，DST不是一个普通的类型。由于类型大小是未知的，只能通过指针来访问它。所以，一个指向DST的指针是一个“宽”指针，它包含指针本身和一些额外的信息（具体请往下看）。</p>
+<p>语言提供了两种主要的DST：</p>
+<ul>
+<li>trait对象：<code>dyn MyTrait</code></li>
+<li>slices：<a href="https://doc.rust-lang.org/std/primitive.slice.html"><code>[T]</code></a>, <a href="../std/primitive.str.html"><code>str</code></a>，以及其他</li>
+</ul>
+<p>trait对象表示实现了某种指定trait的类型。具体的类型被擦除了，取而代之的是运行期的一个虚函数表，表中包含了使用这种类型所有必要的信息。使trait对象指针完整的信息是vtable指针。可以从vtable动态请求指针指向的对象的运行时大小。</p>
+<p>slice简单来说是一个连续存储结构的视图——最典型的连续存储结构是数组或<code>Vec</code>。使slice指针完整的信息只是它指向的元素个数。指针指向的对象的运行时大小是元素的静态已知大小乘以元素个数。</p>
 <p>结构体可以在最后的位置上保存一个DST，但是这样结构体本身也就变成了一个DST。</p>
-<pre><code class="language-Rust">// 不能直接存储在栈上
-struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 不能直接存储在栈上
+struct MySuperSlice {
     info: u32,
     data: [u8],
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
+<p>尽管这种类型没有构造方法时在很大程度上没有用。当前，唯一受支持的创建自定义 DST 的方法是使你的类型变得通用，并执行<em>强制大小调整（unsizing coercion）</em>：</p>
+<pre><pre class="playground"><code class="language-rust">struct MySuperSliceable&lt;T: ?Sized&gt; {
+    info: u32,
+    data: T,
+}
+
+fn main() {
+    let sized: MySuperSliceable&lt;[u8; 8]&gt; = MySuperSliceable {
+        info: 17,
+        data: [0; 8],
+    };
+
+    let dynamic: &amp;MySuperSliceable&lt;[u8]&gt; = &amp;sized;
+
+    // prints: &quot;17 [0, 0, 0, 0, 0, 0, 0, 0]&quot;
+    println!(&quot;{} {:?}&quot;, dynamic.info, &amp;dynamic.data);
+}
+</code></pre></pre>
+<p>（是的，自定义DST目前基本上是半成品。）</p>
 <h2><a class="header" href="#零尺寸类型zst-zero-sized-type" id="零尺寸类型zst-zero-sized-type">零尺寸类型(ZST, Zero Sized Type)</a></h2>
-<p>Rust实际允许一种类型不占用内存空间：</p>
-<pre><code class="language-Rust">struct Foo; // 没有成员 = 没有尺寸
+<p>Rust也允许一种类型不占用内存空间：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Nothing; // 没有成员 = 没有尺寸
 
 // 所有成员都没有尺寸 = 没有尺寸
-struct Baz {
-    foo: Foo,
+struct LotsOfNothing {
+    foo: Nothing,
     qux: (),      // 空元组没有尺寸
     baz: [u8; 0], // 空数组没有尺寸
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>对于其自身来说，ZST显然没有任何用处。但是，和Rust中许多奇怪的布局选项一样，它的作用只在特定的上下文中才能体现：Rust认为所有产生或存储ZST的操作都可以被视为无操作(no-op)。首先，存储它没有什么意义——它又不占用空间。而且这种类型实际上只有一个值，所以加载它的操作可以凭空变一个值出来——而这种操作依然是no-op，因为产生的值不占用空间。</p>
 <p>ZST的一个最极端的例子是Set和Map。已经有了类型<code>Map&lt;Key, Value&gt;</code>，那么要实现<code>Set&lt;Key, Value&gt;</code>的通常做法是简单封装一个<code>Map&lt;Key, UselessJunk&gt;</code>。很多语言不得不给UselessJunk分配空间，还要存储、加载它，然后再什么都不做直接丢弃它。编译器很难判断出这些行为实际是不必要的。</p>
 <p>但是在Rust里，我们可以直接认为<code>Set&lt;Key&gt; = Map&lt;Key, ()&gt;</code>。Rust静态地知道所有加载和存储操作都毫无用处，也不会真的分配空间。结果就是，这段范型代码直接就是HashSet的一种实现，不需要HashMap对值做什么多余的处理。</p>
-<p>安全代码不用关注ZST，但是非安全代码必须考虑零尺寸类型带来的影响。特别注意，计算指针的偏移量是no-op，标准的内存分配器（Rust默认使用jemalloc）在需要分配空间大小为0时可能返回<code>nullptr</code>，很难区分究竟是这种情况还是内存不足。</p>
+<p>安全代码不用关注ZST，但是非安全代码必须考虑零尺寸类型带来的影响。特别是，指针偏移量是无操作的（no-ops），分配器通常<a href="https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html#tymethod.alloc">需要一个非零尺寸</a>。</p>
+<p>请注意，与所有其他引用一样，对 ZST 的引用（包括空切片）必须为非null并适当对齐。解引用 ZST 的空指针或未对齐的指针是<a href="what-unsafe-does.html">未定义的行为</a>，就像其他任何类型一样。</p>
 <h2><a class="header" href="#空类型" id="空类型">空类型</a></h2>
 <p>Rust甚至也支持不能被实例化的类型。这种类型只有类型，而没有对应的值。空类型可以通过指定没有变量的枚举来声明它：</p>
-<pre><code class="language-Rust">enum Void {} // 没有变量 = 空类型
-</code></pre>
-<p>空类型比ZST更加少见。一个主要的应用场景是在类型层面声明不可到达性(unreachability)。比如，假设一个API一般需要返回一个Result，但是在某个特殊场景下它是绝对不会出错的。这种情况在类型层面的处理方法是将返回值设为<code>Result&lt;T, Void&gt;</code>。因为不可能产生一个<code>Void</code>类型的值，所以返回值不可能是一个<code>Err</code>。知道了这一点，API的调用者就可以信心十足地使用<code>unwrap</code>。</p>
-<p>原则上来说，Rust可以基于这一点做一些很有意思的分析和优化。比如，<code>Result&lt;T, Void&gt;</code>可以表示成 <code>T</code>，因为实际上不存在返回<code>Err</code>的情况。下面的代码曾经也可以成功编译：</p>
-<pre><code class="language-Rust">enum Void {}
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum Void {} // 没有变量 = 空类型
+<span class="boring">}
+</span></code></pre></pre>
+<p>空类型比ZST更加少见。空类型一个主要的应用场景是在类型层面声明不可到达性(unreachability)。比如，假设一个API一般需要返回一个Result，但是在某个特殊场景下它是绝对不会出错的。这种情况在类型层面的处理方法是将返回值设为<code>Result&lt;T, Void&gt;</code>。因为不可能产生一个<code>Void</code>类型的值，所以返回值不可能是一个<code>Err</code>。知道了这一点，API的调用者就可以信心十足地使用<code>unwrap</code>。</p>
+<p>原则上来说，Rust可以基于这一点做一些很有意思的分析和优化。比如，<code>Result&lt;T, Void&gt;</code>表示成 <code>T</code>，因为实际上不存在返回<code>Err</code>的情况（严格来说，这只是一个无法保证的优化，因此例如将一个转换为另一个仍然是未定义的行为）。</p>
+<p>下面的代码也<em>可以</em>成功编译：</p>
+<pre><code class="language-rust ignore">enum Void {}
 
 let res: Result&lt;u32, Void&gt; = Ok(0);
 
 // 不存在Err的情况，所以Ok实际上永远都能匹配成功
 let Ok(num) = res;
 </code></pre>
-<p>但是现在这些把戏已经不让玩了。所以Void唯一的用处就是明确地告诉你某些情况永远不会发生。</p>
-<p>关于空类型的最后一个坑，创建指向空类型的裸指针实际上是合法的，但是对它解引用是一个未定义行为，因为这么做没有任何意义。也就是说，你可以使用<code>*const Void</code>模拟C语言的<code>void *</code>类型，但是使用<code>*const ()</code>却不会得到任何东西，因为这个函数对于随机解引用是安全的。</p>
+<p>但是现在这些把戏已经不行了。</p>
+<p>关于空类型的最后一个需要注意的地方是，创建指向空类型的裸指针实际上是合法的，但是对它解引用是一个未定义行为，因为这么做没有任何意义。</p>
+<p>我们建议不要使用 <code>*const Void</code> 对 C 的 <code>void*</code> 类型进行建模。很多人刚开始时这样做，但很快就遇到了麻烦，因为 Rust 真的没有任何安全防范措施，无法尝试使用不安全的代码实例化空类型，如果你这样做，那就是未定义的行为。这尤其成问题，因为开发人员习惯于将原始指针转换为引用，并且构造 <code>&amp;Void</code> <em>也</em>是未定义的行为。</p>
+<p><code>*const ()</code>（或等效变量）对于 <code>void*</code> 的效果相当好，并且可以作为应用而没有任何安全问题。它仍然不会阻止你尝试读取或写入值，但至少它会编译为无操作而不是未定义的行为。</p>
+<h2><a class="header" href="#外部类型extern-types" id="外部类型extern-types">外部类型（Extern Types）</a></h2>
+<p><a href="https://github.com/rust-lang/rfcs/blob/master/text/1861-extern-types.md">公认的 RFC</a> 可以添加大小未知的适当类型，称为<em>外部类型</em>，这将使 Rust 开发人员可以对C的<code>void*</code>和其他“声明但从未定义”的类型进行更准确的建模。但是从 Rust 2018 开始，该功能因 <code>size_of::&lt;MyExternType&gt;()</code> 的行为而陷入困境。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/other-reprs.html">https://doc.rust-lang.org/nomicon/other-reprs.html</a></p>
 <h1><a class="header" href="#可选的数据表达方式" id="可选的数据表达方式">可选的数据表达方式</a></h1>
-<p>Rust允许你选择其他的数据布局策略。</p>
+<p>Rust允许你选择其他的数据布局策略。还有不安全的代码准则（请注意，这<strong>不是</strong>规范性的）。</p>
 <h2><a class="header" href="#reprc" id="reprc">repr(C)</a></h2>
 <p>这是最重要的一种<code>repr</code>。它的目的很简单，就是和C保持一致。数据的顺序、大小、对齐方式都和你在C或C++中见到的一摸一样。所有你需要通过FFI交互的类型都应该有<code>repr(C)</code>，因为C是程序设计领域的世界语。而且如果我们要在数据布局方面玩一些花活的话，比如把数据重新解析成另一种类型，<code>repr(C)</code>也是很有必要的。</p>
-<p>但是，一定不要忘了Rust的那几个奇行种。<code>repr(C)</code>的存在有双重作用，既为了FFI同时也为了常规的布局控制，所以它可以被应用于那些在FFI中没有意义甚至会产生错误的类型。</p>
+<p>我们强烈建议你使用 <a href="https://rust-lang.github.io/rust-bindgen/">rust-bindgen</a> 和/或 <a href="https://github.com/eqrion/cbindgen">cbindgen</a> 为你管理 FFI 边界。Rust 团队与这些项目紧密合作，以确保它们稳定运行并与当前和将来有关类型布局和表示的保证兼容。</p>
+<p>一定不要忘了Rust的那几个奇行种。<code>repr(C)</code>的存在有双重作用，既为了FFI同时也为了常规的布局控制，所以<code>repr(C)</code>可以被应用于那些在FFI中没有意义甚至会产生错误的类型。</p>
 <ul>
-<li>尽管标准的C语言不支持大小为0的类型，但ZST的尺寸仍然是0。而且它也与C++中的空类型有着明显的不同，C++的空类型还是要占用一个字节的空间的。</li>
-<li>DST的指针（胖指针），元组，和带有成员变量的枚举都是C中没有的，因此也不是FFI安全的。</li>
-<li>如果<code>T</code>是一个<a href="https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization">FFI安全的非空指针</a>,那么<code>Option&lt;T&gt;</code>可以保证和<code>T</code>拥有相同的布局和ABI，当然它也会是FFI安全的。这一规则适用于<code>&amp;</code>, <code>&amp;mut</code>和函数指针等所有非空的指针。</li>
+<li>尽管标准的C语言不支持大小为0的类型，但ZST的尺寸仍然是0。而且它也与C++中的空类型有着明显的不同，C++表示它们仍应占用一个字节的空间。</li>
+<li>DST的指针（宽指针）和元组都是C中没有的，因此也不是FFI安全的。</li>
+<li>带有字段的枚举也不是C或C++中的概念，但是<a href="https://github.com/rust-lang/rfcs/blob/master/text/2195-really-tagged-unions.md">定义了</a>有效的类型桥接。</li>
+<li>如果<code>T</code>是一个<a href="https://doc.rust-lang.org/nomicon/ffi.html#the-nullable-pointer-optimization">FFI安全的非空指针</a>，那么<code>Option&lt;T&gt;</code>可以保证和<code>T</code>拥有相同的布局和ABI，当然它也会是FFI安全的。这一规则适用于<code>&amp;</code>, <code>&amp;mut</code>和函数指针等所有非空的指针。</li>
 <li>在<code>repr(C)</code>中元组结构体与结构体基本相同，唯一的不同是其成员都是未命名的。</li>
-<li>对于枚举的处理和<code>repr(u*)</code>是相同的（见下一节）。选择的类型尺寸等于目标平台上C的应用二进制接口(ABI)的默认枚举尺寸。注意C中枚举的数据布局是确定的，所以这确实是一种“最合理的假设”。不过，当目标C代码编译时加了一些特殊的编译器参数时，这一点可能就不正确了。</li>
+<li>对于无字段的枚举，<code>repr(C)</code>和<code>repr(u*)</code>是相同的（见下一节）。选择的类型尺寸等于目标平台上C的应用二进制接口(ABI)的默认枚举尺寸。注意C中枚举的数据布局是确定的，所以这确实是一种“最合理的假设”。不过，当目标C代码编译时加了一些特殊的编译器参数时，这一点可能就不正确了。</li>
 <li><code>repr(C)</code>和<code>repr(u*)</code>中无成员的枚举不能被赋值为一个没有对应变量的整数，尽管在C\C++中这是一种合法的行为。构建一个没有对应变量的枚举类型实例属于未定义行为。（对于存在准确匹配的值是允许正常编写和编译的）</li>
 </ul>
+<h2><a class="header" href="#reprtransparent" id="reprtransparent">repr(transparent)</a></h2>
+<p>这只能用于具有单个非零大小字段（可能存在其他零大小字段）的结构。这样做的结果是，整个结构的布局和 ABI 保证与该字段相同。</p>
+<p>目的是使在单个字段和结构之间转换成为可能。一个例子是[ʻUnsafeCell`]，可以将其转换为它包装的类型。</p>
+<p>同样，在另一侧需要内部字段类型的地方，通过FFI传递结构体保证可以工作。特别是，对于 <code>struct Foo(f32)</code> 始终具有与 <code>f32</code> 相同的ABI是必要的。</p>
+<p>更多详细信息，请参见<a href="https://github.com/rust-lang/rfcs/blob/master/text/1758-repr-transparent.md">RFC</a>。</p>
 <h2><a class="header" href="#repru-repri" id="repru-repri">repr(u*), repr(i*)</a></h2>
 <p>这两个可以指定无成员枚举的大小。如果枚举变量对应的整数值对于设定的大小越界了，将产生一个编译期错误。你可以手工设置越界的元素为0以避免编译错误，不过要注意Rust是不允许一个枚举中的两个变量拥有相同的值的。</p>
 <p>“无成员枚举”的意思是枚举的每一个变量里都不关联数据。不指定<code>repr(u*)</code>或<code>repr(i*)</code>的无成员枚举依然是一个Rust的合法原生类型，它们都没有固定的ABI表示方法。给它们指定<code>repr</code>使其有了固定的类型大小，方便在ABI中使用。</p>
-<p>Rust中所有有成员的枚举都没有确定的ABI表示方式（即使关联的数据只是<code>PhantomData</code>或者零尺寸类型的数据）。</p>
+<p>如果枚举包含字段，则其效果类似于<code>repr(C)</code>的效果，因为存在类型的已定义布局。这样就可以将枚举传递给C代码，或访问类型的原始表示并直接操作其标记和字段。有关详细信息，请参见<a href="https://github.com/rust-lang/rfcs/blob/master/text/2195-really-tagged-unions.md">RFC</a>。</p>
 <p>为枚举显式指定<code>repr</code>后空指针优化将不再起作用。</p>
 <p>这些<code>repr</code>对于结构体无效。</p>
 <h2><a class="header" href="#reprpacked" id="reprpacked">repr(packed)</a></h2>
 <p><code>repr(packed)</code>强制Rust不填充空数据，各个类型的数据紧密排列。这样有助于提升内存的使用效率，但很可能会导致其他的副作用。</p>
-<p>尤其是大部分平台都强烈建议数据对齐。这意味着加载未对齐的数据会很低效（x86)，甚至是错误的(一些ARM芯片)。像直接加载或存储打包的(packed)成员变量这种简单的场景，编译器可能可以用shift和mask等方式隐藏对齐问题。但是如果是使用一个打包的变量的引用，编译器很可能没办法避免未对齐加载问题。</p>
-<p><a href="https://github.com/rust-lang/rust/issues/27060"><strong>在Rust 1.0中这会导致未定义行为</strong></a></p>
+<p>尤其是大部分平台都<em>强烈</em>建议数据对齐。这意味着加载未对齐的数据会很低效（x86)，甚至是错误的(一些ARM芯片)。像直接加载或存储打包的(packed)成员变量这种简单的场景，编译器可能可以用shift和mask等方式隐藏对齐问题。但是如果是使用一个打包的变量的引用，编译器很可能没办法避免未对齐加载问题。</p>
+<p><a href="https://github.com/rust-lang/rust/issues/27060"><strong>在 Rust 2018 中这会导致未定义行为</strong></a></p>
 <p><code>repr(packed)</code>不应该随便使用。只有在你有一些极端的需求的情况下才该用它。</p>
 <p>这个repr是<code>repr(C)</code>和<code>repr(Rust)</code>的修饰器。</p>
+<h2><a class="header" href="#repralignn" id="repralignn">repr(align(n))</a></h2>
+<p><code>repr(align(n))</code>（其中<code>n</code>是2的幂）强制类型具有<em>至少</em> n 的对齐方式。</p>
+<p>这可以实现多种技巧，例如确保数组的相邻元素永远不会彼此共享同一条缓存行（这可以加快某些种类的并发代码的速度）。</p>
+<p>这是<code>repr(C)</code>和<code>repr(rust)</code>的修饰符，与<code>repr(packed)</code>不兼容。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/ownership.html">https://doc.rust-lang.org/nomicon/ownership.html</a></p>
 <h1><a class="header" href="#所有权和生命周期" id="所有权和生命周期">所有权和生命周期</a></h1>
 <p>所有权是Rust的一个突破性功能。它让Rust可以彻底告别垃圾回收，同时做到内存安全和高效率。在涉及到所有权系统的细节之前，我们先看一下这种设计的目的。</p>
