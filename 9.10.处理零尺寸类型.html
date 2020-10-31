@@ -179,7 +179,10 @@
 <p>如果分配器API不支持分配大小为0的空间，那么我们究竟储存了些什么呢？当然是<code>Unique::empty()</code>了！基本上所有关于ZST的操作都是no-op，因为ZST只有一个值，不需要储存或加载任何的状态。这也同样适用于<code>ptr::read</code>和<code>ptr::write</code>：它们根本不会看那个指针一眼。所以我们并不需要修改指针。</p>
 <p>注意，我们之前的分配代码依赖于OOM会先于数值溢出出现的假设，对于零尺寸类型不再有效了。我们必须显式地保证cap的值在ZST的情况下不会溢出。</p>
 <p>基于现在的架构，我们需要写3处保护代码，RawVec的三个方法每个都有一处。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; RawVec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; RawVec&lt;T&gt; {
     fn new() -&gt; Self {
         // !0就是usize::MAX。这段分支代码在编译期就可以计算出结果。
         let cap = if mem::size_of::&lt;T&gt;() == 0 { !0 } else { 0 };
@@ -234,11 +237,15 @@ impl&lt;T&gt; Drop for RawVec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是这样。我们现在已经支持push和pop零尺寸类型了。但是迭代器（slice未提供的）还不能工作。</p>
 <h2><a class="header" href="#迭代零尺寸类型" id="迭代零尺寸类型">迭代零尺寸类型</a></h2>
 <p>offset 0是一个no-op。这意味着我们的<code>start</code>和<code>end</code>总是会被初始化为相同的值，我们的迭代器也无法产生任何的东西。当前的解决方案是把指针转换为整数，增加他们的值，然后再转换回来：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; RawValIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; RawValIter&lt;T&gt; {
     unsafe fn new(slice: &amp;[T]) -&gt; Self {
         RawValIter {
             start: slice.as_ptr(),
@@ -252,9 +259,13 @@ impl&lt;T&gt; Drop for RawVec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>现在我们有了一个新的bug。我们成功地让迭代器从完全不运行，变成了永远不停地运行。我们需要在迭代器的实现中玩同样的把戏。同时，<code>size_hint</code>在ZST的情况下会出现除数为0的问题。因为我们假设这两个指针都指向某个字节，我们在除数为0的情况下直接将除数变为1。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Iterator for RawValIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Iterator for RawValIter&lt;T&gt; {
     type Item = T;
     fn next(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
@@ -296,7 +307,8 @@ impl&lt;T&gt; DoubleEndedIterator for RawValIter&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>很好，迭代器也可以工作了。</p>
 
                     </main>

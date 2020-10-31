@@ -181,7 +181,10 @@
 </ul>
 <p>很显然，如果这些函数被滥用的话，很可能导致错误或者未定义行为。它们唯一的要求就是被读写的位置必须已经分配了内存。但是，向任意位置写入任意字节很可能造成不可预测的错误。</p>
 <p>下面的代码集中展示了它们的用法：</p>
-<pre><code class="language-Rust">use std::mem;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::mem;
 use std::ptr;
 
 // 数组的大小是硬编码的但是可以很方便地修改
@@ -201,7 +204,8 @@ unsafe {
 }
 
 println!(&quot;{:?}&quot;, x);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>需要注意，你不用担心<code>ptr::write</code>和实现了<code>Drop</code>的或者包含<code>Drop</code>子类型的类型之间无法和谐共处，因为Rust知道这时不会调用<code>drop</code>。类似的，你可以给一个只有局部初始化的结构体的成员赋值，只要那个成员不包含<code>Drop</code>子类型。</p>
 <p>但是，在使用未初始化内存的时候你需要时刻小心，Rust可能会在值未完全初始化的时候就尝试销毁它们。如果一个变量有析构函数，那么变量作用域的每一个代码分支都应该在结束之前完成变量的初始化。否则<a href="https://doc.rust-lang.org/nomicon/unwinding.html">会导致崩溃</a>。</p>
 <p>这就是未初始化内存的全部内容！其他地方基本上不会再涉及到未初始化内存了，所以如果你想跳过本章，请千万小心。</p>

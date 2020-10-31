@@ -171,7 +171,10 @@
 <h1><a class="header" href="#回收资源" id="回收资源">回收资源</a></h1>
 <p>接下来我们应该实现Drop，否则就要造成大量的资源泄露了。最简单的方法是循环调用<code>pop</code>直到产生None为止，然后再回收我们的缓存。注意，当<code>T: !Drop</code>的时候，调用<code>pop</code>不是必须的。理论上我们可以问一问Rust<code>T</code>是不是<code>need_drop</code>然后再省略一些<code>pop</code>调用。可实际上LLVM很擅长移除像这样的无副作用的代码，所以我们不需要再做多余的事，除非你发现LLVM不能成功移除（在这里它能）。</p>
 <p>在<code>self.cap == 0</code>的时候，我们一定不要调用<code>heap::deallocate</code>，因为这时我们还没有实际分配过任何内存。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Drop for Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Drop for Vec&lt;T&gt; {
     fn drop(&amp;mut self) {
         if self.cap != 0 {
             while let Some(_) = self.pop() { }
@@ -185,7 +188,8 @@
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

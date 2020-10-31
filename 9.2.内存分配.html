@@ -172,9 +172,12 @@
 <p>使用Unique给Vec（以及所有的标准库集合）造成了一个问题：空的Vec不会分配内存。如果既不能分配内存，又不能给<code>ptr</code>传递一个空指针，那我们在<code>Vec::new</code>中能做什么呢？好吧，我们就胡乱往Vec里塞点东西。</p>
 <p>这么做没什么问题，因为我们用<code>cap == 0</code>来表示没有分配空间。我们也不用做什么特殊的处理，因为我们通常都会去检查<code>cap &gt; len</code>或者<code>len &gt; 0</code>。Rust推荐的放进去的值是<code>mem::align_of::&lt;T&gt;()</code>。Unique则提供了一个更方便的方式<code>Unique::empty()</code>。我们会在很多的地方用到<code>empty</code>，因为有时候我们没有实际分配的内存，而<code>null</code>会降低编译器的效率。</p>
 <p>所以：</p>
-<pre><code class="language-Rust">#![feature(alloc, heap_api)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(alloc, heap_api)]
 
-use std::mem;
+<span class="boring">fn main() {
+</span>use std::mem;
 
 impl&lt;T&gt; Vec&lt;T&gt; {
     fn new -&gt; Self {
@@ -182,25 +185,34 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         Vec { ptr: Unique::empty(), len: 0, cap: 0 }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们插入了一个assert语句，因为零尺寸类型需要做很多特殊的处理，我们希望以后再讨论这个问题。如果没有assert的话，我们之前的代码会出现很多严重的问题。</p>
 <p>接下来我们要讨论在需要内存空间的时候，我们要做些什么。这里我们需要使用其他的heap API。这些API允许我们直接和Rust的分配器（默认是jemalloc）打交道。</p>
 <p>我们还需要能够处理内存不足（OOM）的方法。标准库会调用<code>std::alloc::oom()</code>，而这个函数会调用<code>oom</code>langitem。默认情况下，它就是执行一个非法的CPU指令来中止程序。之所以要终止程序而不是panic，是因为栈展开的过程也可能需要分配内存，而你的分配器早就告诉过你“嘿，我这没有更多的内存了”。</p>
 <p>当然，这么做显得有一点傻乎乎，因为大多数平台正常情况下都不会真的没有内存。如果你的程序正常地耗尽了内存，操作系统可能会用其他的方式kill掉它。真的遇到OOM，最有可能的原因是我们一次性的请求严重过量的内存（比如，理论地址空间的一半）。这种情况下其实可以panic而不用担心有什么问题。不过，我们希望尽量模仿标准库的行为，所以我们还是中止整个程序。</p>
 <p>好了，现在我们可以编写扩容的代码了。简单粗暴一点，我们需要这样的逻辑：</p>
-<pre><code class="language-Rust">if cap == 0:
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>if cap == 0:
     allocate()
     cap = 1
 else:
     reallocate()
     cap *= 2
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是Rust支持的分配器API过于底层了，我们不得不做一些其他的工作。我们还需要应对过大的或者空的内存分配等特殊的场景。</p>
 <p>特别是<code>ptr::offset</code>会给我们造成很多麻烦。因为它的语义是LLVM的GEP inbounds指令。如果你很幸运，以前没有处理过这个语义，这里就简单介绍一下GEP的作用：别名分析，别名分析，别名分析。推导数据依赖和别名对于一个成熟的编译器来说至关重要。</p>
 <p>一个简单的例子，看一下下面这段代码：</p>
-<pre><code class="language-Rust">*x *= 7;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>*x *= 7;
 *y *= 3;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>如果编译器可以证明<code>x</code>和<code>y</code>指向内存的不同区域，那么这两个操作理论上可以并行执行(比如，把它们加载到不同的寄存器并各自独立地处理)。但一般编译器不能这么做，因为如果x和y指向相同的区域，两个操作是在同一个值上做的，最后的结果不能合并到一起。</p>
 <p>如果你使用了GEP inbounds，你其实是在告诉LLVM你的offset操作是在一个分配实体里面做的。LLVM可以认为，当已知两个指针指向不同的对象时，他们所有的offset也都不是重名的（因为它们只能指向某个确定范围内的位置）。LLVM针对GEP offset做了很多的优化，而inbounds offset是效果最好的，所以我们也要尽可能地利用它。</p>
 <p>这就是GEP做的事情，那么它怎么会给我们制造麻烦呢？</p>
@@ -213,7 +225,10 @@ else:
 <p>如果是尺寸大于0的类型呢？这种情况就更复杂一些。原则上，你可以认为offset 0不会给LLVM提供任何的信息：地址的前面或后面可能存在一些元素，可不需要知道它们确切是什么。但是，我们还是谨慎一些，假设这么做有可能导致不好的情况。所以我们会显式地避免这种场景。</p>
 <p>终于要结束了。</p>
 <p>不要再说这些废话了，我们实际写一段内存分配的代码：</p>
-<pre><code class="language-Rust">use std::alloc::oom;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::alloc::oom;
 
 fn grow(&amp;mut self) {
     // 整段代码都很脆弱，所以我们把它整体设为unsafe
@@ -254,7 +269,8 @@ fn grow(&amp;mut self) {
         self.cap = new_cap;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>没有什么特别奇怪的操作。只是计算类型大小和对其，然后小心地做一些乘法检查。</p>
 
                     </main>

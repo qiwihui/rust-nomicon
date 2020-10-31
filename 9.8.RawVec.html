@@ -171,7 +171,10 @@
 <h1><a class="header" href="#rawvec" id="rawvec">RawVec</a></h1>
 <p>我们遇到了一个很有意思的情况：我们把初始化缓存和释放内存的逻辑在Vec和IntoIter里面一模一样地写了两次。现在我们已经实现了功能，而且发现了逻辑的重复，是时候对代码做一些压缩了。</p>
 <p>我们要抽象出<code>(ptr, cap)</code>，并赋予它们分配、扩容和释放的逻辑：</p>
-<pre><code class="language-Rust">struct RawVec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct RawVec&lt;T&gt; {
     ptr: Unique&lt;T&gt;,
     cap: usize,
 }
@@ -222,9 +225,13 @@ impl&lt;T&gt; Drop for RawVec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>然后像下面这样改写Vec：</p>
-<pre><code class="language-Rust">pub struct Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct Vec&lt;T&gt; {
     buf: RawVec&lt;T&gt;,
     len: usize,
 }
@@ -250,9 +257,13 @@ impl&lt;T&gt; Drop for Vec&lt;T&gt; {
         // 释放空间由RawVec负责
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>最后我们可以简化IntoIter：</p>
-<pre><code class="language-Rust">struct IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct IntoIter&lt;T&gt; {
     _buf: RawVec&lt;T&gt;, // 我们并不关心这个，只是需要它们保持分配空间不被销毁
     start: *const T,
     end: *const T,
@@ -285,7 +296,8 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>现在看起来好多了。</p>
 
                     </main>

@@ -181,15 +181,22 @@
 <p>如果E直接指向它下一次要读的元素，我们就无法把上面的情况和所有元素都读过了的情况区分开了。</p>
 <p>我们还需要保存Vec的分配空间的信息，虽然在迭代过程中我们并不关心它，但我们在IntoIter被drop的时候需要这些信息来释放空间。</p>
 <p>所以我们要用下面这个结构体：</p>
-<pre><code class="language-Rust">struct IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct IntoIter&lt;T&gt; {
     buf: Unique&lt;T&gt;,
     cap: usize,
     start: *const T,
     end: *const T,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是初始化的代码：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Vec&lt;T&gt; {
     fn into_iter(self) -&gt; IntoIter&lt;T&gt; {
         // 因为Vec是Drop，不能销毁它
         let ptr = self.ptr;
@@ -214,9 +221,13 @@
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是前向迭代的代码：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Iterator for IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Iterator for IntoIter&lt;T&gt; {
     type Item = T;
     fn next(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
@@ -236,9 +247,13 @@
         (len, Some(len))
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是逆向迭代的代码：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; DoubleEndedIterator for IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; DoubleEndedIterator for IntoIter&lt;T&gt; {
     fn next_back(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
             None
@@ -250,9 +265,13 @@
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>因为IntoIter获得了分配空间的所有权，它需要实现Drop来释放空间。同时Drop也要销毁所有它拥有但是没有读取到的元素。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Drop for IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Drop for IntoIter&lt;T&gt; {
     fn drop(&amp;mut self) {
         if self.cap != 0 {
             // drop剩下的元素
@@ -267,7 +286,8 @@
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

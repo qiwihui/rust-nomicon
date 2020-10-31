@@ -172,7 +172,10 @@
 <p>slice并没有提供插入和删除功能，接下来我们就实现它们。</p>
 <p>插入需要把目标位置后的所有元素都向右移动1。这里我们需要用到<code>ptr::copy</code>，它就是C中的<code>memmove</code>的Rust版。它把一块内存从一个地方拷贝到另一个地方，而且可以正确处理源和目标内存区域有重叠的情况（也正是我们这里遇到的情况）。</p>
 <p>如果我们在<code>i</code>的位置插入，我们需要把[i .. len]移动到[i+1 .. len+1]，len指的是插入前的值。</p>
-<pre><code class="language-Rust">pub fn insert(&amp;mut self, index: usize, elem: T) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn insert(&amp;mut self, index: usize, elem: T) {
     // 注意：&lt;=是因为我们可以把值插到所有元素的后面
     // 这种情况等同于push
     assert!(index &lt;= self.len, &quot;index out of bounds&quot;);
@@ -189,9 +192,13 @@
         self.len += 1;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>删除则是完全相反的行为。我们要把元素[i+1 .. len + 1]移动到[i .. len]，len是删除后的值。</p>
-<pre><code class="language-Rust">pub fn remove(&amp;mut self, index: usize) -&gt; T {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn remove(&amp;mut self, index: usize) -&gt; T {
     // 注意：&lt;是因为我们不能删除所有元素之后的位置
     assert!(index &lt; self.len, &quot;index out of bounds&quot;);
     unsafe {
@@ -203,7 +210,8 @@
         result
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

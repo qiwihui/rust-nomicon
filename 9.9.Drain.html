@@ -170,7 +170,10 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-drain.html">https://doc.rust-lang.org/nomicon/vec-drain.html</a></p>
 <h1><a class="header" href="#drain" id="drain">Drain</a></h1>
 <p>我们接着看看Drain。Drain和IntoIter基本相同，只不过它并不获取Vec的值，而是借用Vec并且不改变它的分配空间。现在我们只是先最“基本”的全范围(full-range)的版本。</p>
-<pre><code class="language-Rust">use std::marker::PhantomData;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker::PhantomData;
 
 struct Drain&lt;'a, T: 'a&gt; {
     // 这里需要限制生命周期。我们使用&amp;'a mut Vec&lt;T&gt;，因为这就是语义上我们包含的东西。
@@ -185,9 +188,13 @@ impl&lt;'a, T&gt; Iterator for Drain&lt;'a, T&gt; {
     fn next(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
             None
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>——等一下，这个看着有点眼熟。我们需要做进一步的压缩。IntoIter和Drain有着完全一样的结构，我们把它提取出来。</p>
-<pre><code class="language-Rust">struct RawValIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct RawValIter&lt;T&gt; {
     start: *const T,
     end: *const T,
 }
@@ -209,9 +216,13 @@ impl&lt;T&gt; RawValIter&lt;T&gt; {
 }
 
 // Iterator和DoubleEndedIterator的实现与IntoIter完全一样。
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>IntoIter变成了这样：</p>
-<pre><code class="language-Rust">pub struct IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct IntoIter&lt;T&gt; {
     _buf: RawVec&lt;T&gt;, // 我们并不关心这个，只是需要它们保持分配空间不被销毁
     iter: RawValIter&lt;T&gt;,
 }
@@ -247,10 +258,14 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>注意，我在设计中留下了一些小后门，以便更简单地将Drain升级为可访问任意子范围的版本。特别是，我们可以在drop中让RawValIter遍历它自己。但是这种设计不适用于更复杂的Drain。我们还使用一个slice简化Drain的初始化。</p>
 <p>好了，现在Drain变得很简单：</p>
-<pre><code class="language-Rust">use std::marker::PhantomData;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker::PhantomData;
 
 pub struct Drain&lt;'a, T: 'a&gt; {
     vec: PhantomData&lt;&amp;'a mut Vec&lt;T&gt;&gt;,
@@ -289,7 +304,8 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>关于更多的<code>mem::forget</code>的问题，请见<a href="https://doc.rust-lang.org/nomicon/leaking.html">关于泄露的章节</a>。</p>
 
                     </main>

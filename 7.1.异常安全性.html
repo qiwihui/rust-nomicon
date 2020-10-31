@@ -179,7 +179,10 @@
 <p>大多数非安全代码都比较容易实现异常安全。因为它控制着程序运行的每个细节，而且大部分代码不会Panic。但是非安全代码也经常要做诸如在未初始化数据的数组上反复运行外部代码这样的操作。这种代码就需要小心考虑异常安全性了。</p>
 <h2><a class="header" href="#vecpush_all" id="vecpush_all">Vec::push_all</a></h2>
 <p><code>Vec::push_all</code>使用一个<code>slice</code>扩充<code>Vec</code>，由于它没有具体化类型，所以能获得较高的效率。下面是一个简单的实现：</p>
-<pre><code class="language-Rust">impl&lt;T: Clone&gt; Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T: Clone&gt; Vec&lt;T&gt; {
     fn push_all(&amp;mut self, to_push: &amp;[T]) {
         self.reserve(to_push.len());
         unsafe {
@@ -192,7 +195,8 @@
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们不去使用<code>push</code>，因为它会对Vec的容量和<code>len</code>做额外的检查，而有些情况下我们能够明确知道容量是充足的。这段代码的逻辑是完全正确的，但是却有一个问题：它不是异常安全的！<code>set_len</code>、<code>offset</code>和<code>write</code>都没问题，但是<code>clone</code>是一颗引发Panic的炸弹。</p>
 <p><code>Clone</code>的实现是我们无法控制的，它很可能会panic。如果它真的panic了，这个方法会提前退出，但我们之前给Vec设置的更大的长度会一致保持下去。当Vec被访问或者销毁的时候，它会读取未初始化内存！</p>
 <p>解决方法很简单。如果我们要保证我们clone的值都被销毁了，我们可以在每一次循环里设置<code>len</code>。如果我们只是想保证不会出现读取未初始化内存的情况，我们可以在循环之后设置<code>len</code>。</p>
@@ -238,7 +242,10 @@
 </code></pre>
 <p>基本思想很简单：如果比较操作panic了，我们就把取出的元素塞回到逻辑上未初始化的位置然后退出。访问这个堆的人可能会发现堆的状态是不连续的，但是至少这个方案不会引发二次释放！如果算法正常结束的话，这个设计就和我们最开始不做任何处理的方案一模一样了。</p>
 <p>可惜，Rust并没有这些东西，所以我们只能自己早轮子了！我们把算法的状态储存在一个独立的结构体中，结构体的析构函数起到了”finally“的功能。不管有没有panic，析构函数都会被调用并且清除我们留下状态。</p>
-<pre><code class="language-Rust">struct Hole&lt;'a, T: 'a&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Hole&lt;'a, T: 'a&gt; {
     data: &amp;'a mut [T],
     // elt从始至终都会是Some
     elt: Option&lt;T&gt;,
@@ -296,7 +303,8 @@ impl&lt;T: Ord&gt; BinaryHeap&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

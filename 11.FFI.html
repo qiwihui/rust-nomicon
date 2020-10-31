@@ -179,7 +179,7 @@ libc = &quot;0.2.0&quot;
 <p>然后在你的crate的根文件插入一句<code>extern crate libc;</code></p>
 <h3><a class="header" href="#调用外部函数" id="调用外部函数">调用外部函数</a></h3>
 <p>下面是一个调用外部函数的小例子，安装了snappy才能编译成功。</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 use libc::size_t;
 
 #[link(name = &quot;snappy&quot;)]
@@ -191,12 +191,15 @@ fn main() {
     let x = unsafe { snappy_max_compressed_length(100) };
     println!(&quot;max compressed length of a 100 byte buffer: {}&quot;, x);
 }
-</code></pre>
+</code></pre></pre>
 <p><code>extern</code>代码块中是外部库的函数签名的列表，这个例子中使用的是平台相关的C的ABI。<code>#[link(...)]</code>属性用来构建一个链接snappy库的链接器，以便解析库中的符号(symbol)。</p>
 <p>外部函数都被认为是不安全的，所以对它们的调用必须包装在<code>unsafe {}</code>中，也就是向编译器承诺块中的代码都是安全的。C的库经常暴露非线程安全的接口，而且几乎所有的接受指针参数的函数都是不合法的，因为指针可能是悬垂指针，而裸指针不符合Rust的内存安全模型。</p>
 <p>在声明外部函数的参数类型时，Rust编译器不能检查声明的正确性，所以我们需要自己保证它是正确的，这也是运行期正确绑定的条件之一。</p>
 <p><code>extern</code>块还可以继续扩展，包含所有的snappy API：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>extern crate libc;
 use libc::{c_int, size_t};
 
 #[link(name = &quot;snappy&quot;)]
@@ -216,20 +219,28 @@ extern {
     fn snappy_validate_compressed_buffer(compressed: *const u8,
                                          compressed_length: size_t) -&gt; c_int;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#创建安全接口" id="创建安全接口">创建安全接口</a></h2>
 <p>原生的C API进行封装，以保证内存安全，还有使用vector等高级概念。库可以选择只暴露安全的、高级的接口，并隐藏非安全的内部细节。</p>
 <p>我们使用<code>slice::raw</code>模块封装接受内存块的函数，这个模块会把Rust的vector转换为内存的指针。Rust的vector是一块连续的内存。它的长度是当前包含的元素的数量，容量是分配内存可存储的元素的总数。长度是小于等于容量的。</p>
-<pre><code class="language-Rust">pub fn validate_compressed_buffer(src: &amp;[u8]) -&gt; bool {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn validate_compressed_buffer(src: &amp;[u8]) -&gt; bool {
     unsafe {
         snappy_validate_compressed_buffer(src.as_ptr(), src.len() as size_t) == 0
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>上方的<code>validate_compressed_buffer</code>包装器用到了<code>unsafe</code>代码块，但是函数签名里没有<code>unsafe</code>关键字，这说明它保证函数调用对所有的输入都是安全的。</p>
 <p><code>snappy_compress</code>和<code>snappy_uncompress</code>函数更复杂一些，因为它们需要分配一块空间储存输出的结果。</p>
 <p><code>snappy_max_compressed_length</code>函数可以用来分配一段最大容积内的vector，以保存输出的结果。这个vector可以传递给<code>snappy_compress</code>函数作为输出参数。还会传递一个输出参数获取压缩后的真实长度，以便设置返回值的长度。</p>
-<pre><code class="language-Rust">pub fn compress(src: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn compress(src: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
     unsafe {
         let srclen = src.len() as size_t;
         let psrc = src.as_ptr();
@@ -243,9 +254,13 @@ extern {
         dst
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>解压缩也是类似的，因为snappy的压缩格式中保存了未压缩时的大小，函数<code>snappy_uncompressed_length</code>可以获取需要的缓存区的尺寸。</p>
-<pre><code class="language-Rust">pub fn uncompress(src: &amp;[u8]) -&gt; Option&lt;Vec&lt;u8&gt;&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn uncompress(src: &amp;[u8]) -&gt; Option&lt;Vec&lt;u8&gt;&gt; {
     unsafe {
         let srclen = src.len() as size_t;
         let psrc = src.as_ptr();
@@ -264,9 +279,13 @@ extern {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>接下来，我们添加一些测试用例来展示如何使用它们。</p>
-<pre><code class="language-Rust">#[cfg(test)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -295,7 +314,8 @@ mod tests {
         assert!(uncompress(&amp;c) == Some(d));
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#析构函数" id="析构函数">析构函数</a></h2>
 <p>外部库经常把资源的所有权返还给调用代码。如果是这样，我们必须用Rust的析构函数保证所有的资源都被释放了（特别是在panic的情况下）。</p>
 <p>更多关于析构函数的内容，请见<a href="https://doc.rust-lang.org/std/ops/trait.Drop.html">Drop trait</a>。</p>
@@ -304,7 +324,7 @@ mod tests {
 <p>然后回调函数会通过注册调用传递给C的库，并在外部库中被触发。</p>
 <p>下面是一个简单的例子。</p>
 <p>Rust代码：</p>
-<pre><code class="language-Rust">extern fn callback(a: i32) {
+<pre><pre class="playground"><code class="language-rust">extern fn callback(a: i32) {
     println!(&quot;I'm called from C with value {0}&quot;, a);
 }
 
@@ -320,7 +340,7 @@ fn main() {
         trigger_callback(); // 触发回调
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>C代码：</p>
 <pre><code class="language-C">typedef void (*rust_callback)(int32_t);
 rust_callback cb;
@@ -338,7 +358,7 @@ void trigger_callback() {
 <h3><a class="header" href="#将rust对象作为回调" id="将rust对象作为回调">将Rust对象作为回调</a></h3>
 <p>之前的例子演示了C代码如何调用全局函数。但是很多情况下回调也可能是一个Rust对象，比如说封装了某个C的结构体的Rust对象。</p>
 <p>要实现这一点，我们可以传递一个指向这个对象的裸指针给C的库。C的库接下来可以将指针转换为Rust的对象。这样回调函数就可以非安全地访问相应的Rust对象了。</p>
-<pre><code class="language-Rust">#[repr(C)]
+<pre><pre class="playground"><code class="language-rust">#[repr(C)]
 struct RustObject {
     a: i32,
     // 其他成员……
@@ -368,7 +388,7 @@ fn main() {
         trigger_callback();
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>C代码：</p>
 <pre><code class="language-C">typedef void (*rust_callback)(void*, int32_t);
 void* cb_target;
@@ -416,12 +436,16 @@ void trigger_callback() {
 <h2><a class="header" href="#非安全代码块" id="非安全代码块">非安全代码块</a></h2>
 <p>有一些操作，比如解引用裸指针、或者调用被标为unsafe的函数，它们只能存在于非安全代码块中。非安全代码块隔离了非安全性，并向编译器承诺非安全性不会影响到块以外的代码。</p>
 <p>非安全函数则不同，它们声明非安全性一定会影响到函数之外。一个非安全函数写法如下：</p>
-<pre><code class="language-Rust">unsafe fn kaboom(ptr: *const i32) -&gt; i32 { *ptr }
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>unsafe fn kaboom(ptr: *const i32) -&gt; i32 { *ptr }
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数只能在<code>unsafe</code>代码块或者另外一个<code>unsafe</code>函数里被调用。</p>
 <h2><a class="header" href="#访问外部全局变量" id="访问外部全局变量">访问外部全局变量</a></h2>
 <p>外部API经常暴露一些全局变量，用于记录全局状态等。为了访问这些变量，你需要在<code>extern</code>块中用<code>static</code>关键字声明它们：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 
 #[link(name = &quot;readline&quot;)]
 extern {
@@ -432,9 +456,9 @@ fn main() {
     println!(&quot;You have readline version {} installed.&quot;,
              unsafe { rl_readline_version as i32 });
 }
-</code></pre>
+</code></pre></pre>
 <p>有时也可能需要通过外部的接口修改全局状态。如果要这么做，静态变量还要添加<code>mut</code>，让我们可以修改它们。</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 
 use std::ffi::CString;
 use std::ptr;
@@ -454,11 +478,14 @@ fn main() {
         rl_prompt = ptr::null();
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>注意，所有和<code>static mut</code>的操作都是非安全的，不管是读还是写。处理全局可变状态的时候一定要格外的小心。</p>
 <h2><a class="header" href="#外部调用规范" id="外部调用规范">外部调用规范</a></h2>
 <p>大多数外部代码都暴露C的ABI，而Rust默认根据平台相关的C的调用规范调用外部函数。还有一些外部函数使用其他的规范，最典型的就是WindowsAPI。Rust也有方法告诉编译器使用哪种规范：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>extern crate libc;
 
 #[cfg(all(target_os = &quot;win32&quot;, target_arch = &quot;x86&quot;))]
 #[link(name = &quot;kernel32&quot;)]
@@ -466,7 +493,8 @@ fn main() {
 extern &quot;stdcall&quot; {
     fn SetEnvironmentVariableA(n: *const u8, v: *const u8) -&gt; libc::c_int;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码作用于整个<code>extern</code>代码块。支持的ABI包括：</p>
 <ul>
 <li><code>stdcall</code></li>
@@ -489,7 +517,7 @@ extern &quot;stdcall&quot; {
 <p>[crate.io的<code>libc</code> crate]<code>(https://crates.io/crates/libc)在</code>libc<code>模块中包含了C标准库的类型别名和函数定义，而Rust默认链接</code>libc<code>和</code>libm`。</p>
 <h2><a class="header" href="#可变函数" id="可变函数">可变函数</a></h2>
 <p>在C中，函数可以是“可变的”，也就是说可以接收可变数量的参数。在Rust中可以在外部函数声明的参数类表中插入<code>...</code>实现这一点：</p>
-<pre><code class="language-Rust">extern {
+<pre><pre class="playground"><code class="language-rust">extern {
     fn foo(x: i32, ...);
 }
 
@@ -498,17 +526,21 @@ fn main() {
         foo(10, 20, 30, 40, 50);
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>普通的Rust函数不能是可变的：</p>
-<pre><code class="language-Rust">// 这段不能通过编译
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 这段不能通过编译
 fn foo(x: i32, ...) { }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#空指针优化" id="空指针优化">空指针优化</a></h2>
 <p>一些Rust类型被定义为永不为<code>null</code>，包括引用（<code>&amp;T</code>、<code>&amp;mut T</code>）、<code>Box&lt;T&gt;</code>、以及函数指针（<code>extern &quot;abi&quot; fn()</code>）。可是在使用C的接口时，指针是经常可能为<code>null</code>的。看起来似乎需要用到<code>transmute</code>或者非安全代码来处理各种混乱的类型转换。但是，Rust其实提供了另外的方法。</p>
 <p>一些特殊情况中，<code>enum</code>很适合做空指针优化，只要它包含两个变量，其中一个不包含数据，而另外一个包含一个非空类型的成员。这样就不需要额外的空间做判断了：给那个包含非空成员的变量传递一个<code>null</code>，用它来表示另外那个空的变量。这种行为虽然被叫做“优化”，但是和其他的优化不同，它只适用于合适的类型。</p>
 <p>最常见的受益于空指针优化的类型是<code>Option&lt;T&gt;</code>，其中<code>None</code>可以用<code>null</code>表示。所以<code>Option&lt;extern &quot;C&quot; fn(c_int) - &gt; c_int&gt;</code>就很适合表示一个使用C ABI的可为空的函数指针（对应于C的<code>int (*)(int)</code>）。</p>
 <p>下面是一个刻意造出来的例子。假设一些C的库提供了注册回调的方法，然后在特定的条件下调用回调。回调接受一个函数指针和一个整数，然后用这个整数作为参数调用指针指向的函数。所以我们会向FFI边界的两侧都传递函数指针。</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 use libc::c_int;
 
 extern &quot;C&quot; {
@@ -531,7 +563,7 @@ fn main() {
         register(Some(apply));
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>C的代码是像这样的：</p>
 <pre><code class="language-C">void register(void (*f)(void (*)(int), int)) {
     ...
@@ -540,15 +572,19 @@ fn main() {
 <p>看，并不需要<code>transmute</code>！</p>
 <h2><a class="header" href="#c调用rust" id="c调用rust">C调用Rust</a></h2>
 <p>你可能想要用某种方式编译Rust，让C可以直接调用它。这件事很简单，只需要做少数的处理：</p>
-<pre><code class="language-Rust">#[no_mangle]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[no_mangle]
 pub extern fn hello_rust() -&gt; *const u8 {
     &quot;Hello, world!\0&quot;.as_ptr()
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p><code>extern</code>让它对应的函数符合C的调用规范，在上面的<a href="https://doc.rust-lang.org/nomicon/ffi.html#foreign-calling-conventions">外部调用规范</a>一节有详细讨论。<code>no_mangle</code>属性关闭Rust的name mangling，让它更方便被链接。</p>
 <h2><a class="header" href="#ffi和panic" id="ffi和panic">FFI和panic</a></h2>
 <p>使用FFI的时候要格外注意<code>panic!</code>。跨越FFI边界的<code>panic!</code>属于未定义行为。如果你写的代码可能会panic，你应该使用<code>catch_unwind</code>在一个闭包里执行它：</p>
-<pre><code class="language-Rust">use std::panic::catch_unwind;
+<pre><pre class="playground"><code class="language-rust">use std::panic::catch_unwind;
 
 #[no_mangle]
 pub extern fn oh_no() -&gt; i32 {
@@ -562,7 +598,7 @@ pub extern fn oh_no() -&gt; i32 {
 }
 
 fn main() {}
-</code></pre>
+</code></pre></pre>
 <p>请注意，<code>catch_unwind</code>只能捕获可展开的panic，不能捕获abort。更多的信息请参考<code>catch_unwind</code>的文档。</p>
 <h2><a class="header" href="#表示不透明结构体" id="表示不透明结构体">表示不透明结构体</a></h2>
 <p>有时候，C的库要提供一个指针指向某个东西，但又不想让你知道那个东西的内部细节。最简单的方式是使用<code>void *</code>：</p>
@@ -570,13 +606,17 @@ fn main() {}
 void bar(void *arg);
 </code></pre>
 <p>在Rust中我们可以用<code>c_void</code>类型表示它：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>extern crate libc;
 
 extern &quot;C&quot; {
     pub fn foo(arg: *mut libc::c_void);
     pub fn bar(arg: *mut libc::c_void);
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是一个完全合法的方法。不过，我们其实还可以做得更好。要解决这个问题，一些C库可能会创建一个结构体，可结构体的细节和内存布局是私有的。这样提高了类型的安全性。这种结构体被称为”不透明“的。下面是一个C的例子：</p>
 <pre><code class="language-C">struct Foo; /* Foo是一个接口，但它的内容不属于公共接口 */
 struct Bar;
@@ -584,15 +624,15 @@ void foo(struct Foo *arg);
 void bar(struct Bar *arg);
 </code></pre>
 <p>在Rust中，我们可以使用枚举来创建我们自己的不透明类型：</p>
-<pre><code class="language-Rust">#[repr(C)] pub struct Foo { _private: [u8; 0] }
+<pre><pre class="playground"><code class="language-rust">#[repr(C)] pub struct Foo { _private: [u8; 0] }
 #[repr(C)] pub struct Bar { _private: [u8; 0] }
 
 extern &quot;C&quot; {
     pub fn foo(arg: *mut Foo);
     pub fn bar(arg: *mut Bar);
 }
-# fn main() {}
-</code></pre>
+<span class="boring">fn main() {}
+</span></code></pre></pre>
 <p>给结构体一个私有成员而不给它构造函数，这样我们就创建了一个不透明的类型，而且我们不能在模块之外实例化它。（没有成员的结构体可以在任何地方实例化）因为我们希望在FFI中使用这个类型，我们必须加上<code>#[repr(C)]</code>。还为了避免在FFI中使用<code>()</code>的时候出现警告，我们用了一个空数组。空数组和空类型的行为一致，同时它还是FFI兼容的。</p>
 <p>但因为<code>Foo</code>和<code>Bar</code>是不同的类型，我们需要保证两者之间的类型安全性，所以我们不能把<code>Foo</code>的指针传递给<code>bar()</code>。</p>
 <p>注意，用空枚举作为FFI类型是一个很不好的设计。编译器将空枚举视为不可达的空类型，所以使用<code>&amp;Empty</code>类型的值是很危险的，这可能导致很多程序中的问题（触发未定义行为）。</p>

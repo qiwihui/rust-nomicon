@@ -174,26 +174,38 @@
 <p>C11的内存模型试图同时满足开发者对语义的要求、编译器对优化的要求、还有硬件对千奇百怪混乱状态的要求。而我们只希望能写一段程序做我们想让它做的事情，并且要做得快。是不是很不错？</p>
 <h2><a class="header" href="#编译器重排" id="编译器重排">编译器重排</a></h2>
 <p>编译器努力地通过各种复杂的变换，尽可能减少数据依赖和消除死代码。特别是，它可能会彻底改变事件的顺序，或者干脆让某些事件永远不会发生！如果我们写了这样的代码</p>
-<pre><code class="language-Rust">x = 1;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>x = 1;
 y = 3;
 x = 2;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>编译器会发现这段程序最好能变成</p>
-<pre><code class="language-Rust">x = 2;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>x = 2;
 y = 3;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>事件的顺序变了，还有一个事件完全消失了。在单线程的情况下，我们不会察觉有什么区别：毕竟代码执行后可以得到和我们期望的完全相同的状态。但如果程序是多线程的，我们可能确实需要在<code>y</code>被赋值前将<code>x</code>赋值为1。我们希望编译器能做出这一类优化，因为这可以提升程序的性能。可另一方面，我们还希望我们写的程序能完全按照我们的指令行事。</p>
 <h2><a class="header" href="#硬件重排" id="硬件重排">硬件重排</a></h2>
 <p>即使编译器完全明白了我们的意图并且按照我们的期望去工作，硬件还是有可能来找麻烦的。麻烦来自于在内存分层模式下的CPU。你的硬件系统里确实有一些全局共享的内存空间，但是在各个CPU核心看来，这些内存都离得太远，速度也太慢。CPU希望能在它的本地cache里操作数据，只有在cache里没有需要的内存时才委屈地和共享内存打交道。</p>
 <p>毕竟，这不就是cache存在的全部意义吗？如果每一次读取cache都要再去检查共享内存看看数据有没有变化，那么cache还有什么价值呢？最终的结果就是，硬件不能保证相同的事件在两个不同的线程里一定有相同的执行顺序。如果要保证这点，我们必须有一些特殊的方法告诉CPU稍微变笨一点。</p>
 <p>比如，我们已经成功地让编译器保证下面的逻辑：</p>
-<pre><code class="language-Rust">初始状态: x = 0, y = 1
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>初始状态: x = 0, y = 1
 
 线程1         线程2               
 y = 3;       if x == 1 {
 x = 1;           y *= 2;
              }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段程序实际上有两种可能的结果：</p>
 <ul>
 <li><code>y = 3</code>：线程2在线程1完成之前检查了x的值</li>
@@ -235,7 +247,7 @@ x = 1;           y *= 2;
 <p>直观看起来，acquire保证在它之后的访问永远在它之后。可在它之前的操作却有可能被重排到它后面、类似的，release保证它之前的操作永远在它之前。但是它后面的操作可能被重排到它前面。</p>
 <p>当线程A释放了一块内存空间，紧接着线程B获取了同一块内存，这时因果关系就确定了。在A释放之前的所有写操作的结果，B在获取之后都能看到。但是，它们和其他线程之间没有确定因果关系。同理，如果A和B访问的是不同的内存，它们也没有因果关系。</p>
 <p>所以，释放-获取的基本用法很简单：你获取一块内存并进入临界区，然后释放内存并离开临界区。比如，一个简单的自旋锁可能是这样的：</p>
-<pre><code class="language-Rust">use std::sync::Arc;
+<pre><pre class="playground"><code class="language-rust">use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
@@ -253,7 +265,7 @@ fn main() {
     // 工作完成了，释放锁
     lock.store(false, Ordering::Release);
 }
-</code></pre>
+</code></pre></pre>
 <p>在强顺序平台上，大多数的访问都有释放和获取的语义，释放和获取通常是无开销的。不过在弱顺序平台上不是这样。</p>
 <h2><a class="header" href="#relaxed" id="relaxed">Relaxed</a></h2>
 <p>Relaxed访问是最弱的。它们可以被随意重排，也没有先后关系。但是Relaxed操作依然是原子的。也就是说，它并不算是数据访问，所有对它的读-修改-写操作都是原子的。Relaxed操作适用于那些你希望发生但又并不特别在意的事情。比如，多线程可以使用Relaxed的fetch_add来增加计数器，如果你不使用计数器的值去同步其他的访问，这个操作就是安全的。</p>

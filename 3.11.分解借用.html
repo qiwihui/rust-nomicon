@@ -170,7 +170,10 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/borrow-splitting.html">https://doc.rust-lang.org/nomicon/borrow-splitting.html</a></p>
 <h1><a class="header" href="#分解借用" id="分解借用">分解借用</a></h1>
 <p>可变引用的Mutex属性在处理复合类型时能力非常有限。借用检查器只能理解一些简单的东西，而且极易失败。他对结构体还算是充分了解，知道结构体的成员可能被分别借用。所以这段代码现在可以正常工作：</p>
-<pre><code class="language-Rust">struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Foo {
     a: i32,
     b: i32,
     c: i32,
@@ -184,13 +187,18 @@ let c = &amp;x.c;
 let c2 = &amp;x.c;
 *a += 10;
 println!(&quot;{} {} {} {}&quot;, a, b, c, c2);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是，借用检查器对于数组和slice的理解却是一团浆糊，所以这段代码无法通过检查：</p>
-<pre><code class="language-Rust">let mut x = [1, 2, 3];
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut x = [1, 2, 3];
 let a = &amp;mut x[0];
 let b = &amp;mut x[1];
 println!(&quot;{} {}&quot;, a, b);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <pre><code>&lt;anon&gt;:4:14: 4:18 error: cannot borrow `x[..]` as mutable more than once at a time
 &lt;anon&gt;:4 let b = &amp;mut x[1];
                       ^~~~
@@ -209,7 +217,10 @@ error: aborting due to 2 previous errors
 </code></pre>
 <p>借用检查器连这个简单的场景都理解不了，那它更不可能理解一些通用容器类型了，比如说树，尤其是出现不同的键对应相同的值的时候。</p>
 <p>为了能“教育”借用检查器我们的所作所为是正确的，我们还是要使用非安全代码。比如，可变slice暴露了一个<code>split_at_mut</code>的方法，它接收一个slice然后返回两个可变slice。一个包括索引值左边所有的值，另一个包含右边所有的值。我们知道这个方法是安全的，因为两个slice没有重叠部分，也就不会出现别名问题。但是它的实现还是要涉及到非安全的内容：</p>
-<pre><code class="language-Rust">fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
     let len = self.len();
     let ptr = self.as_mut_ptr();
     assert!(mid &lt;= len);
@@ -218,21 +229,29 @@ error: aborting due to 2 previous errors
          from_raw_parts_mut(ptr.offset(mid as isize), len - mid))
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这有一点难懂。为了避免两个<code>&amp;mut</code>指向相同的值，我们通过裸指针显式创建了两个全新的slice。</p>
 <p>不过迭代器产生可变引用的方法更加难懂。迭代器trait的定义如下：</p>
-<pre><code class="language-Rust">trait Iterator {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait Iterator {
     typr Item;
 
     fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt;;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这份定义里，<code>Self::Item</code>与<code>slef</code>没有直接关系。也就是说我们可以连续调用<code>next</code>很多次，并且同时保存着所有的结果。对于值的迭代器这么做完全可以，完全符合语义。对于共享引用这么做也没什么问题，因为允许任意过个共享引用指向同一个值（当然迭代器本身需要是独立于被共享内容的对象）。</p>
 <p>但是可变引用就麻烦了。乍一看，可变引用完全不适用这个API，因为那会产生多个指向相同对象的可变引用。</p>
 <p>可实际上它能够正常工作，这是因为迭代器是一个一次性对象。<code>IterMut</code>生成的东西最多只会生成一次，所以实际上我们没有生成多个指向相同数据的可变指针。</p>
 <p>更不可思议的是，可变迭代器对于许多类型的实现甚至不需要非安全代码！</p>
 <p>例如，下面是单向列表的代码：</p>
-<pre><code class="language-Rust">type Link&lt;T&gt; = Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>type Link&lt;T&gt; = Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;;
 
 struct Node&lt;T&gt; {
     elem: T,
@@ -261,9 +280,13 @@ impl&lt;'a, T&gt; Iterator for IterMut&lt;'a, T&gt; {
         })
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是可变slice：</p>
-<pre><code class="language-Rust">use std::mem;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::mem;
 
 pub struct IterMut&lt;'a, T: 'a&gt;(&amp;'a mut[T]);
 
@@ -291,9 +314,13 @@ impl&lt;'a, T&gt; DoubleEndedIterator for IterMut&lt;'a, T&gt; {
         r.get_mut(0)
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>还有二叉树：</p>
-<pre><code class="language-Rust">use std::collections::VecDeque;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::collections::VecDeque;
 
 type Link&lt;T&gt; = Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;;
 
@@ -395,7 +422,8 @@ impl&lt;'a, T&gt; DoubleEndedIterator for IterMut&lt;'a, T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>所有这些都是完全安全而且能稳定运行的！这已经超出了我们之前看过的简单结构体的例子：Rust能够理解你把一个可变引用安全地分解为多个部分。接下来我们可以通过Option永久地访问这个引用（或者像对于slice那样，替换为一个空的slice）。</p>
 
                     </main>

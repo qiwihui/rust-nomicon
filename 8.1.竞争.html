@@ -179,7 +179,10 @@
 <p><strong>但是Rust并不会避免一般竞争条件。</strong></p>
 <p>因为要做到这一点其实是不可能的，而且好像也是不必要的。你的硬件是竞争的，操作系统是竞争的，计算机上其他的程序是竞争的，整个世界都是竞争的。任何一个声称可以避免所有竞争条件的系统，即使没有错误，也一定及其难用。</p>
 <p>所以，安全Rust出现死锁，或者因为不正确的同步而做出一些奇怪的行为，这些都是可以接受的。显然这样的程序并不是最理想的程序，但Rust也只能帮你到这了。而且，竞争条件自己不能违反Rust的内存安全性。只有配合上其他的非安全代码，竞争条件才有可能破坏内存安全。比如：</p>
-<pre><code class="language-Rust">use std::thread;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -203,8 +206,12 @@ thread::spawn(move || {
 // 这符合竞争条件，因为程序执行得正确与否（panic几乎不可能是正确的）
 // 依赖于线程的执行顺序
 println!(&quot;{}&quot;, data[idx.load(Ordering::SeqCst)]);
-</code></pre>
-<pre><code class="language-Rust">use std::thread;
+<span class="boring">}
+</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -226,7 +233,8 @@ if idx.load(Ordering::SeqCst) &lt; data.len() {
         println!(&quot;{}&quot;, data.get_unchecked(idx.load(Ordering::SeqCst)));
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

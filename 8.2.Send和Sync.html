@@ -185,20 +185,28 @@
 <p><code>Rc</code>和<code>UnsafeCell</code>是典型的非线程安全的：它们允许非同步地共享可变状态。可是，裸指针严格来说并不一定非得是非线程安全不可。通过裸指针做任何有意义的事情都需要先对它解引用，这一步就已经是非安全的了。从这个角度来说，有人可能会认为把它标为线程安全的也未尝不可。</p>
 <p>可是，它们被标为非线程安全的主要目的是避免包含它们的类型自动成为线程安全的。这些类型都有着重要的不可追踪的所有权，保证它们线程安全需要花费大量的精力，而他们的作者不太可能做到这一点。<code>Rc</code>就是一个很好的例子，一个包含<code>*mut</code>的类型绝对不能是线程安全的。</p>
 <p>不是自动推导的类型也可以很容易地实现<code>Send</code>和<code>Sync</code>：</p>
-<pre><code class="language-Rust">struct MyBox(*mut u8);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct MyBox(*mut u8);
 
 unsafe impl Send for MyBox {}
 unsafe impl Sync for MyBox {}
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>还有一个很少见的场景，一个类型被自动推导为<code>Send</code>或<code>Sync</code>，但是它其实不满足二者的要求。这是我们可以去掉<code>Send</code>和<code>Sync</code>的实现：</p>
-<pre><code class="language-Rust">#![feature(option_builtin_traits)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(option_builtin_traits)]
 
-// 我对于同步的基础类型有着神奇的语义
+<span class="boring">fn main() {
+</span>// 我对于同步的基础类型有着神奇的语义
 struct SpecialThreadToken(u8);
 
 impl !send for SpecialThreadToken {}
 impl !Sync for SpecialThreadToken {}
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>注意，一个类型自己不可能被不正确地推导为<code>Send</code>和<code>Sync</code>。只有当类型和其他的非安全代码一起实现了一些特殊行为时，它才可能成为一个不正确的<code>Send</code>或<code>Sync</code>。</p>
 <p>大部分使用裸指针的类型都应该把裸指针用一种抽象隐藏起来，以保证类型可以被推导为<code>Send</code>和<code>Sync</code>。比如，所有Rust的标准集合类型都是<code>Send</code>和<code>Sync</code>（在他们包含<code>Send</code>和<code>Sync</code>类型的情况下），虽然它们都大量使用了裸指针处理内存分配和复杂的所有权。类似的，大部分这些集合的迭代器也是<code>Send</code>和<code>Sync</code>，因为它们的行为很像这些集合的<code>&amp;</code>或者<code>&amp;mut</code>。</p>
 <p>TODO：更好地解释什么类型可以是<code>Send</code>和<code>Sync</code>，什么类型不可以。只考虑数据竞争是不是就足够了呢？</p>

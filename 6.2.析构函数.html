@@ -178,9 +178,12 @@
 <p><strong>在Rust 1.0中，没有什么合适的方法可以打断这个过程。</strong></p>
 <p>注意，参数是<code>&amp;mut self</code>意味着即使你可以阻止递归销毁，Rust也不允许你将子成员的所有权移出。对于大多数类型来说，这一点完全没问题。</p>
 <p>比如，一个自定义的<code>Box</code>的实现，它的<code>Drop</code>可能长这样：</p>
-<pre><code class="language-Rust">#![feature(ptr_internals, allocator_api)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(ptr_internals, allocator_api)]
 
-use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
+<span class="boring">fn main() {
+</span>use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
 use std::mem;
 use std::ptr::{drop_in_place, NonNull, Unique};
 
@@ -195,12 +198,16 @@ impl&lt;T&gt; Drop for Box&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码是正确的，因为当Rust要销毁<code>ptr</code>的时候，它见到的是一个<a href="https://doc.rust-lang.org/nomicon/phantom-data.html">Unique</a>，没有<code>Drop</code>的实现。类似的，也没有人能在销毁后再使用<code>ptr</code>，因为drop函数退出之后，他就不可见了。</p>
 <p>可是这段代码是错误的：</p>
-<pre><code class="language-Rust">#![feature(allocator_api, ptr_internals)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(allocator_api, ptr_internals)]
 
-use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
+<span class="boring">fn main() {
+</span>use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
 use std::ptr::{drop_in_place, Unique, NonNull};
 use std::mem;
 
@@ -225,28 +232,40 @@ impl&lt;T&gt; Drop for SuperBox&lt;T&gt; {
         Global.dealloc(c.cast::&lt;u8&gt;(), LayOut::new::&lt;T&gt;());
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当我们在<code>SuperBox</code>的析构函数里回收了<code>box</code>的<code>ptr</code>之后，Rust会继续让<code>box</code>销毁它自己,这时销毁后使用(use-after-free)和两次释放(double-free)的问题立刻接踵而至，摧毁一切。</p>
 <p>注意，递归销毁适用于所有的结构体和枚举类型，不管它有没有实现<code>Drop</code>。所以，这段代码</p>
-<pre><code class="language-Rust">struct Boxy&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Boxy&lt;T&gt; {
     data1: Box&lt;T&gt;,
     data2: Box&lt;T&gt;,
     info: u32,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>在销毁的时候也会调用<code>data1</code>和<code>data2</code>的析构函数，尽管这个结构体本身并没有实现<code>Drop</code>。这样的类型“需要Drop却不是Drop”。</p>
 <p>类似的</p>
-<pre><code class="language-Rust">enum Link {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum Link {
     Next(Box&lt;Link&gt;),
     None,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当（且仅当）一个实例储存着<code>Next</code>变量时，它就会销毁内部的<code>Box</code>成员。</p>
 <p>一般来说这其实是一个很好的设计，它让你在重构数据布局的时候无需费心添加/删除<code>drop</code>函数。但也有很多的场景要求我们必须在析构函数中玩一些花招。</p>
 <p>如果想阻止递归销毁并且在<code>drop</code>过程中将<code>self</code>的所有权移出，通常的安全的做法是使用<code>Option</code>：</p>
-<pre><code class="language-Rust">#![feature(allocator_api, ptr_internals)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(allocator_api, ptr_internals)]
 
-use std::alloc::{Alloc, GlobalAlloc, Global, LayOut};
+<span class="boring">fn main() {
+</span>use std::alloc::{Alloc, GlobalAlloc, Global, LayOut};
 use std::ptr::{drop_in_place, Unique, NonNull};
 use std::mem;
 
@@ -276,7 +295,8 @@ impl&lt;T&gt; Drop for SuperBox&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是这段代码显得很奇怪：我们认为一个永远都是<code>Some</code>的成员有可能是<code>None</code>，仅仅因为析构函数中用到了一次。但反过来说这种设计又很合理：你可以在析构函数中调用<code>self</code>的任意方法。<em>在成员被反初始化之后就完全不能这么做了，而不是禁止你搞出一些随意的非法状态</em>。（斜体部分没看懂，建议看原文）</p>
 <p>权衡之后，这是一个可以接受的方案。你可以将它作为你的默认选项。但是，我们希望以后能有一个方法明确声明哪一个成员不会自动销毁。</p>
 

@@ -171,10 +171,14 @@
 <h1><a class="header" href="#省略生命周期" id="省略生命周期">省略生命周期</a></h1>
 <p>为了让语言的表达方式更人性化，Rust允许函数的签名中省略生命周期。</p>
 <p>“生命周期位置”指的是你在类型中可以写生命周期的地方。</p>
-<pre><code class="language-Rust">&amp;'a T
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>&amp;'a T
 &amp;'a mut T
 T&lt;'a&gt;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>生命周期的位置可以在“输入”也可以在“输出”：</p>
 <ul>
 <li>对于<code>fn</code>定义的函数，“输入”指的是函数签名中的参数的类型，而“输出”是结果的类型。所以<code>fn foo(s: &amp;str) -&gt; (&amp;str, &amp;str)</code>省略了一个在输入位置处的生命周期和两个结果位置的生命周期。注意，<code>fn</code>方法定义中的输入位置不包括<code>impl</code>头处的生命周期（自然地，对于trait的默认方法，也不包括trait的头的位置）。</li>
@@ -188,7 +192,10 @@ T&lt;'a&gt;
 <li>除了上述两种情况，其他省略生命周期的情况都是错误的。</li>
 </ul>
 <p>几个例子：</p>
-<pre><code class="language-Rust">fn print(s: &amp;str);                                      // 省略的
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn print(s: &amp;str);                                      // 省略的
 fn print&lt;'a&gt;(s: &amp;'a str);                               // 完整的
 
 fn debug(lvl: usize, s: &amp;str);                          // 省略的
@@ -209,7 +216,8 @@ fn args&lt;'a, 'b, T: ToCStr&gt;(&amp;'a mut self, args: &amp;'b [T]) -&gt; &amp
 
 fn new(buf: &amp;mut [u8]) -&gt; BufWriter;                    // 省略的
 fn new&lt;'a&gt;(buf: &amp;'a mut [u8]) -&gt; BufWriter&lt;'a&gt;          // 完整的
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

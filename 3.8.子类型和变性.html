@@ -200,7 +200,7 @@
 <p>在介绍子类型的时候，其实已经包括了为什么<code>&amp;'a T</code>对<code>'a</code>是协变的。当需要一个较短的生命周期时，我们需要能够传递一个更长的生命周期。</p>
 <p>类似的理由也可以解释为什么它对于<code>T</code>是协变的：给一个要求<code>&amp;&amp;'a str</code>的地方传递<code>&amp;&amp;'static T</code>是很合理的。这种间接的引用并不影响对生命周期长度的要求。</p>
 <p>但是同样的逻辑并不适用于<code>&amp;mut</code>。下面的代码演示了为什么<code>&amp;mut</code>对于T是不变的：</p>
-<pre><code class="language-Rust">fn overwrite&lt;T: Copy&gt;(intput: &amp;mut T, new: &amp;mut T) {
+<pre><pre class="playground"><code class="language-rust">fn overwrite&lt;T: Copy&gt;(intput: &amp;mut T, new: &amp;mut T) {
     *input = *new;
 }
 
@@ -213,7 +213,7 @@ fn main() {
     // 不好！在打印被释放的内存数据
     println!(&quot;{}&quot;, forever_str);
 }
-</code></pre>
+</code></pre></pre>
 <p><code>overwrite</code>的签名显然是合法的，它接受两个相同类型的可变引用，然后用一个覆盖另外一个。</p>
 <p>但是，如果<code>&amp;mut T</code>对于T是协变的，<code>&amp;mut &amp;'static str</code>将会是<code>&amp;mut &amp;'a str</code>的子类型，这是因为<code>&amp;'static str</code>是<code>&amp;'a str</code>的子类型。这时<code>forever_str</code>的生命周期就缩减到和<code>string</code>一样短，<code>overwrite</code>也可以被正常调用。接下来<code>string</code>被释放，等到打印的时候<code>forever_str</code>实际指向了一块释放后的内存空间！所以<code>&amp;mut</code>必须是不变的。</p>
 <p>这是变性的一个基本原则：如果生命周期较短的内容有可能存储在生命周期更长的变量里，这时必须要求变性是不变的。</p>
@@ -221,37 +221,65 @@ fn main() {
 <p>但是，<code>&amp;'a mut T</code>对于<code>'a</code>却是协变的。<code>'a</code>和<code>T</code>最关键的区别是<code>'a</code>是引用自身的属性，而T则是引用借用的。如果改变了T的类型，T的原始值依然记着它的类型。可如果改变的是生命周期的类型，只有引用自己知道这一变化，因此这是安全的。换句话说，<code>&amp;'a mut T</code>拥有<code>'a</code>，但是仅仅借用T。</p>
 <p><code>Box</code>和<code>Vex</code>的情况就很有趣了，他们是协变的，可是你可以在里面存储值。Rust的类型系统允许它们比其他的类型更聪明。为了理解为什么拥有数据所有权的容器类型对于它们的内容是协变的，我们需要考虑两种可能发生子类型变化的方式：通过值和通过引用。</p>
 <p>如果子类型通过值发生变化，原有的记录类型信息的位置会被移除，也意味着容器再也不能使用原有的值了。所以我们也就不用担心有其他的地方记录着类型的信息。换言之，通过值使用子类型的特性会彻底销毁原有类型的信息。例如，这段代码可以编译并正常运行：</p>
-<pre><code class="language-Rust">fn get_box&lt;'a&gt;(str: &amp;'a str) -&gt; Box&lt;&amp;'a str&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn get_box&lt;'a&gt;(str: &amp;'a str) -&gt; Box&lt;&amp;'a str&gt; {
     // 字符串字面量是&amp;'static str类型，但是我们完全可以“忘掉”这一点，
     // 就让调用者认为这个字符串的生命周期只有这么短
     Box::new(&quot;hello&quot;)
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>如果子类型通过引用发生变化，那么容器类会以<code>&amp;mut Vec&lt;T&gt;</code>类型传递。可是<code>&amp;mut</code>对于它引用的值是不变的，所以<code>&amp;mut Vec&lt;T&gt;</code>对于<code>T</code>实际也是不变的。那么<code>Vec&lt;T&gt;</code>对于<code>T</code>协变这件事在引用的情况下就完全不重要了。</p>
 <p>不过，<code>Box</code>和<code>Vec</code>的协变性在不可变引用的情况下依然有用。所以你可以将<code>&amp;Vec&lt;&amp;'static str&gt;</code>传递给需要<code>&amp;Vec&lt;&amp;'a str&gt;</code>的地方。</p>
 <p>cell类型的不变性可以这样理解：对于cell来说<code>&amp;</code>就是<code>&amp;mut</code>，因为你可以通过<code>&amp;</code>储存值。所以cell必须是不变的，以避免生命周期缩短的问题。</p>
 <p><code>fn</code>是最怪异的，因为它具有混合变性，而且它也是唯一用到了逆变性的地方。下面的函数签名展示了为什么<code>fn(T) -&gt; U</code>对于T是逆变的：</p>
-<pre><code class="language-Rust">// 'a来自父作用域
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 'a来自父作用域
 fn foo(&amp;'a str) -&gt; usize;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个签名表明函数可以接受任何生命周期不小于<code>'a</code>的<code>&amp;str</code>。如果函数对于<code>&amp;'a str</code>是协变的，那么这个函数</p>
-<pre><code class="language-Rust">fn foo(&amp;'static str) -&gt; usize;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo(&amp;'static str) -&gt; usize;
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是它的子类型并且可以使用。但是，这个函数的要求其实更严格，它只能接受<code>&amp;'static str</code>，不能接受其他类型。给它传递一个<code>&amp;'a str</code>是错误的，因为我们不能假设传递给它的值会永远存在。所以，函数对于它的参数类型肯定不能使协变的。</p>
 <p>如果我们反过来应用逆变性，就万事大吉了！需要一个函数来处理永远存在的字符串，而我们提供了一个处理有限生命周期字符串的函数，这也是完全合理的。所以，</p>
-<pre><code class="language-Rust">fn foo(&amp;'a str) -&gt; usize;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo(&amp;'a str) -&gt; usize;
+<span class="boring">}
+</span></code></pre></pre>
 <p>可以被传递给需要</p>
-<pre><code class="language-Rust">fn foo(&amp;'static str) -&gt; usize;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo(&amp;'static str) -&gt; usize;
+<span class="boring">}
+</span></code></pre></pre>
 <p>的地方。</p>
 <p>那<code>fn(T) -&gt; U</code>对于U怎么又是协变的了呢？看看下面这个函数签名：</p>
-<pre><code class="language-Rust">// 'a来自父作用域
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 'a来自父作用域
 fn foo(usize) -&gt; &amp;'a str;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数声明它将返回一个生命周期长于<code>'a</code>的引用。那么下面这个函数</p>
-<pre><code class="language-Rust">fn foot(usize) -&gt; &amp;'static str;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foot(usize) -&gt; &amp;'static str;
+<span class="boring">}
+</span></code></pre></pre>
 <p>用在这里是完全可以的，因为它的的确确返回了一个生命周期长于<code>'a</code>的引用。所以函数对于它的返回值是协变的。</p>
 <p><code>*const</code>和<code>&amp;</code>有着完全一样的语义，所以变性也是一样的。<code>*mut</code>正相反，它可以解引用出一个<code>&amp;mut</code>，所以和cell一样，它也是不变的。</p>
 <p>以上规则都是针对标准库提供的类型，那么自己定义的类型又如何确定变性呢？简单点说，结构体会继承它的成员的变性。如果结构体<code>Foo</code>有一个成员<code>a</code>，它使用了结构体的泛型参数<code>A</code>，那么<code>Foo</code>对于<code>A</code>的变性就等于<code>a</code>对于<code>A</code>的变性。可如果<code>A</code>被用在了多个成员中：</p>
@@ -260,7 +288,10 @@ fn foo(usize) -&gt; &amp;'a str;
 <li>如果所有用到A的成员都是逆变的，那么Foo对于A也是逆变的</li>
 <li>其他的情况，Foo对于A是不变的</li>
 </ul>
-<pre><code class="language-Rust">use std::cell::Cell;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::cell::Cell;
 
 struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
     a: &amp;'a A,     // 对于'a和A协变
@@ -281,7 +312,8 @@ struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
     k1: fn(Mixed) -&gt; usize, // 对于Mix本该是逆变的，但是……
     k2: Mixed,              // 其实对Mixed是不变的，发生变性冲突的都是不变的
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

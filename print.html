@@ -637,7 +637,10 @@ let Ok(num) = res;
 <p>所有权是Rust的一个突破性功能。它让Rust可以彻底告别垃圾回收，同时做到内存安全和高效率。在涉及到所有权系统的细节之前，我们先看一下这种设计的目的。</p>
 <p>我们假设你认同垃圾回收器（GC）不总是内存管理的最佳方案，在一些场景中需要手工地管理内存。如果你并不这么认为，那么请出门右转使用其他的语言吧。</p>
 <p>但是，无论你怎么看待GC，它确实是保证代码安全的大杀器。你永远不需要担心有什么内容会被过早释放（尽管有的时候你已经不想再使用它们了……）。这是C和C++会普遍遇到的问题。看一下这个曾纠缠过每一个使用过非GC语言的人的简单错误：</p>
-<pre><code class="language-Rust">fn as_str(data: &amp;u32) -&gt; &amp;str {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn as_str(data: &amp;u32) -&gt; &amp;str {
     // 计算字符串
     let s = format!(&quot;{}&quot;, data);
 
@@ -646,11 +649,15 @@ let Ok(num) = res;
     // （当然这段代码在Rust中不能编译）
     &amp;s
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这正是Rust的所有权系统要解决的问题。Rust知道<code>&amp;s</code>生效的作用域，所以可以避免出现逃逸。不过这个例子太简单了，哪怕是C的编译器也可能捕捉到其中的错误。但是当代码量越来越大，指针来自四面八方的不同的函数时，事情就变得复杂了。C编译器最终会败下阵来，无法作出充分的逃逸分析来判断你的代码是否足够健壮。它能做的只有假设你的程序是正确的从而接受它。</p>
 <p>这种事情永远不会发生在Rust的世界。Rust需要程序员向编译器保证自己代码的健壮性。</p>
 <p>当然，Rust所有权系统要做的事有很多，不是仅仅验证引用不会超出被引用内容作用域这么简单。这是因为保证指针有效的条件比这个要复杂得多。以下面的代码为例。</p>
-<pre><code class="language-Rust">let mut data = vec![1, 2, 3];
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = vec![1, 2, 3];
 // 获得内部引用
 let x = &amp;data[0];
 
@@ -660,7 +667,8 @@ let x = &amp;data[0];
 data.push(4);
 
 println!(&quot;{}&quot;, x);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>简单地分析作用域不足以防止这个bug，因为<code>data</code>在我们使用它的范围内确实是一直存在的。但是它在我们引用它的同时发生了变化。这就是为什么Rust要求引用的存在要锁定被引用内容和它的owner。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/references.html">https://doc.rust-lang.org/nomicon/references.html</a></p>
 <h1><a class="header" href="#引用" id="引用">引用</a></h1>
@@ -697,7 +705,10 @@ error: aborting due to previous error
 <h2><a class="header" href="#为什么别名很重要" id="为什么别名很重要">为什么别名很重要</a></h2>
 <p>为什么我们要关注别名？</p>
 <p>看下面这个简单的函数。</p>
-<pre><code class="language-Rust">fn compute(input: &amp;u32, output: &amp;mut u32) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn compute(input: &amp;u32, output: &amp;mut u32) {
     if *input &gt; 10 {
         *output = 1;
     }
@@ -705,9 +716,13 @@ error: aborting due to previous error
         *output *= 2;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们可能会这样优化它：</p>
-<pre><code class="language-Rust">fn compute(input: &amp;u32, output: &amp;mut u32) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn compute(input: &amp;u32, output: &amp;mut u32) {
     let cached_input = *input; // 将*input放入缓存
     if cached_input &gt; 10 {
         *output = 2; // x &gt; 5 则必然 x &gt; 5，所以直接加倍并立即退出
@@ -715,10 +730,14 @@ error: aborting due to previous error
         *output *= 2;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>在Rust中，这种优化是正确的。但对于其他几乎所有的语言，都是有错误的（除非编译器进行全局分析）。这是因为优化方案成立的前提是不存在别名，而绝大多数语言并不会限制这一点。例子中我们需要特别担心的是传递给<code>input</code>和<code>output</code>的参数可能会重合，比如<code>comput(&amp;x, &amp;mut x)</code>。</p>
 <p>对于上面的参数，程序流程会是这样：</p>
-<pre><code class="language-Rust">                  //  input ==  output == 0xabad1dea
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>                  //  input ==  output == 0xabad1dea
                   // *input == *output == 20
 if *input &gt; 10 {  // true (*input == 20)
     *output = 1;  // 同时覆盖了 *input，以为他们是一样的
@@ -727,7 +746,8 @@ if *input &gt; 10 {  // true (*input == 20)
     *output *= 2;
 }
                   // *input == *output == 1
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们优化过的函数的结果是<code>*output == 2</code>，所以对于这样的输入参数，优化函数是不正确的。</p>
 <p>在Rust中我们知道不会出现上面那样的输入参数，因为<code>&amp;mut</code>不允许存在别名。所以我们可以安全的忽略这种可能性而使用优化方案。对于大多数其他语言，这种输入的可能性是存在的，必须特别的考虑到。</p>
 <p>这就是别名分析的重要性：它允许编译器做出一些有用的优化。举几个例子：</p>
@@ -742,7 +762,10 @@ if *input &gt; 10 {  // true (*input == 20)
 <p>通过缓存读操作的结果，我们知道在<code>&gt;10</code>的分支中的写操作不会影响执行<code>&gt;5</code>分支的判断条件，这样我们在<code>*input &gt; 10</code>的情况下省略了一次读-改-写操作(<code>*output</code>加倍)。</p>
 <p>关于别名分析需要记住的一个关键点是，写操作是优化的主要障碍。我们不能随意移动读操作的唯一原因，就是可能存在向相同位置写数据的操作，这种移动会破坏他们之间的顺序关系。</p>
 <p>比如，下面这个版本的函数中，我们不需要担心别名问题，因为我们把唯一的一次写<code>*output</code>的操作放到了函数的最后。这让我们可以随意地改变之前的读<code>*input</code>操作的顺序：</p>
-<pre><code class="language-Rust">fn compute(input: &amp;u32, output: &amp;mut u32) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn compute(input: &amp;u32, output: &amp;mut u32) {
     let mut temp = *output;
     if *input &gt; 10 {
         temp = 1;
@@ -752,7 +775,8 @@ if *input &gt; 10 {  // true (*input == 20)
     }
     *output = temp;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们仍然需要别名分析来证明<code>temp</code>不是<code>input</code>的别名，但是这时的证明过程要简单得多：一个本地别量不可能是在它的声明之前就存在的变量的别名。这是所有编程语言共有的一个前提，所以这一版本的函数可以按照与其他语言相同的方式去优化它。</p>
 <p>这也就是Rust可能采用的“别名”定义与生命周期和可变性有关的原因：在没有写内存操作存在的情况下，我们实际上不需要关注是否存在别名。</p>
 <p>当然，一个完整的别名模型也要考虑到诸如函数调用（可能改变我们不可见的内容）、裸指针（不存在限制别名的需求），以及UnsafeCell（允许被<code>&amp;</code>引用的内容可变）。</p>
@@ -763,12 +787,19 @@ if *input &gt; 10 {  // true (*input == 20)
 <p>但是如果你要跨出函数的边界，就需要关心生命周期了。生命周期用这样的符号表示：<code>'a</code>,<code>'static</code>。为了更清晰地了解生命周期，我们假设我们可以为生命周期打标签，去掉本章所有例子的语法糖。</p>
 <p>最开始，我们的示例代码对作用域和生命周期使用了很激进的语法糖特性——甜得像玉米糖浆一样，因为把所有的东西都显式地写出来实在很讨厌。所有的Rust代码都采用比较激进的理论以省略“显而易见”的东西。</p>
 <p>一个特别有意思的语法糖是，每一个<code>let</code>表达式都隐式引入了一个作用域。大多数情况下，这一点并不重要。但是当变量之间互相引用的时候，这就很重要了。举个简单的例子，我们彻底去掉下面这段代码的语法糖：</p>
-<pre><code class="language-Rust">let x = 0;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x = 0;
 let y = &amp;x;
 let z= &amp;y;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>借用检查器通常会尽可能减少生命周期的范围，所以去掉语法糖后的代码大概像这样：</p>
-<pre><code class="language-Rust">// 注意：'a: { 和 &amp;'b x 不是合法的语法
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 注意：'a: { 和 &amp;'b x 不是合法的语法
 'a: {
     let x: i32 = 0;
     'b: {
@@ -780,15 +811,23 @@ let z= &amp;y;
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>哇！这样的写法……太可怕了。我们先停下来感谢Rust把这一切都简化掉了。</p>
 <p>将引用传递到作用域以外会导致生命周期扩大：</p>
-<pre><code class="language-Rust">let x = 0;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x = 0;
 let z;
 let y = &amp;x;
 z = y;
-</code></pre>
-<pre><code class="language-Rust">'a: {
+<span class="boring">}
+</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>'a: {
     let x: i32 = 0;
     'b: {
         let z: &amp;'b i32;
@@ -799,26 +838,35 @@ z = y;
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#示例引用超出被引用内容生命周期" id="示例引用超出被引用内容生命周期">示例：引用超出被引用内容生命周期</a></h2>
 <p>好了，让我们再看一遍曾经举过的一个例子：</p>
-<pre><code class="language-Rust">fn as_str(data: &amp;u32) -&gt; &amp;str {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn as_str(data: &amp;u32) -&gt; &amp;str {
     let s = format!(&quot;{}&quot;, data);
     &amp;s
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>去掉语法糖：</p>
-<pre><code class="language-Rust">fn as_str&lt;'a&gt;(data: &amp;'a u32) -&gt; &amp;'a str {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn as_str&lt;'a&gt;(data: &amp;'a u32) -&gt; &amp;'a str {
     'b: {
         let s = format!(&quot;{}&quot;, data);
         return &amp;'a s;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>函数<code>as_str</code>的签名里接受了一个带有生命周期的u32类型的引用，并且保证会返回一个生命周期一样长的str类型的引用。从这个签名我们就已经可以看出问题了。它表示我们必须到那个u32引用的作用域，或者比它还要早的作用域里去找一个str。这就有点不合理了。</p>
 <p>接下来我们生成一个字符串<code>s</code>，然后返回它的引用。我们的函数要求这个引用的有效期不能小于<code>'a</code>，那是我们给引用指定的生命周期。不幸的是，<code>s</code>是在作用域'b里面定义的。除非'b包含'a这个函数才可能是正确的——而这显然不可能，因为'a必须包含它所调用的函数。这样我们创建了一个生命周期超出被引用内容的引用，这明显违背了之前提到的引用的第一条规则。编译器十分感动然后拒绝了我们。</p>
 <p>我们扩展一下这个例子，一边看得更清楚：</p>
-<pre><code class="language-Rust">fn as_str&lt;'a&gt;(data: &amp;'a u32) -&gt; &amp;'a str {
+<pre><pre class="playground"><code class="language-rust">fn as_str&lt;'a&gt;(data: &amp;'a u32) -&gt; &amp;'a str {
     'b: {
         let s = format!(&quot;{}&quot;, data);
         return &amp;'a s;
@@ -836,23 +884,34 @@ fn main() {
         }
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>完蛋了！</p>
 <p>当然，这个函数的正确写法应该是这样的。</p>
-<pre><code class="language-Rust">fn to_string(data: &amp;u32) -&gt; String {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn to_string(data: &amp;u32) -&gt; String {
     format!(&quot;{}&quot;, data)
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们必须创建一个值然后连同它的所有权一起返回。除非一个字符串是<code>&amp;'a u32</code>的成员，我们才能返回<code>&amp;'a str</code>，显然事情并不是这样的。</p>
 <p>（其实我们也可以返回一个字符串的字面量，它是一个全局的变量，可以认为是处于栈的底部。尽管这样极大限制了函数的使用场合。）</p>
 <h2><a class="header" href="#示例存在可变引用的别名" id="示例存在可变引用的别名">示例：存在可变引用的别名</a></h2>
 <p>在看另一个老的例子：</p>
-<pre><code class="language-Rust">let mut data = vec![1, 2,3];
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = vec![1, 2,3];
 let x = &amp;data[0];
 data.push(4);
 println!(&quot;{}&quot;, x);
-</code></pre>
-<pre><code class="language-Rust">'a: {
+<span class="boring">}
+</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>'a: {
     let mut data: Vec&lt;i32&gt; = vec![1, 2, 3];
     'b: {
         // 对于这个借用来说，'b已经足够大了
@@ -865,14 +924,15 @@ println!(&quot;{}&quot;, x);
         println!(&quot;{}&quot;, x);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这里的问题更加微妙也更有趣。我们希望Rust出于如下的原因拒绝编译这段代码：我们有一个有效的指向<code>data</code>的内部数据的引用<code>x</code>，而同时又创建了一个<code>data</code>的可变引用用于执行<code>push</code>。也就是说出现了可变引用的别名，这违背了引用的第二条规则。</p>
 <p>但是Rust其实并非因为这个原因判断这段代码有问题。Rust不知道<code>x</code>是<code>data</code>的子内容的引用，它其实完全不知道Vec的内部是什么样子的。它只知道<code>x</code>必须在<code>'b</code>范围内有效，这样才能打印其中的内容。函数<code>Index::index</code>的签名因此要求传递的<code>data</code>的引用也必须在<code>'b</code>的范围内有效。当我们调用<code>push</code>的时候，Rust发现我们要创建一个<code>&amp;'c mut data</code>。它知道<code>'c</code>是包含在<code>'b</code>以内的，因为<code>&amp;'b data</code>还存活着，所以它拒绝了这段程序。</p>
 <p>我们看到了生命周期系统要比引用的保护措施更加简单粗暴。大多数情况下这也没什么，它让我们不用没完没了地向编译器解释我们的程序。但是这也意味着许多语义上正确的程序会被编译器拒绝，因为生命周期的规则太死板了。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetime-mismatch.html">https://doc.rust-lang.org/nomicon/lifetime-mismatch.html</a></p>
 <h1><a class="header" href="#生命周期的局限" id="生命周期的局限">生命周期的局限</a></h1>
 <p>考虑下面的代码：</p>
-<pre><code class="language-Rust">struct Foo;
+<pre><pre class="playground"><code class="language-rust">struct Foo;
 
 impl Foo {
     fn mutate_and_share(&amp;mut self) -&gt; &amp;Self {&amp;*self}
@@ -884,7 +944,7 @@ fn main() {
     let loan = foo.mutate_and_share();
     foo.share();
 }
-</code></pre>
+</code></pre></pre>
 <p>你可能觉得它能成功编译。我们调用<code>mutate_and_share</code>，临时可变地借用<code>foo</code>，但接下来返回一个共享引用。因为调用<code>foo.share()</code>时没有可变的引用了，所以我们认为可以正常调用。</p>
 <p>但是当我们尝试编译它：</p>
 <pre><code>&lt;anon&gt;:11:5: 11:8 error: cannot borrow `foo` as immutable because it is also borrowed as mutable
@@ -902,7 +962,7 @@ fn main() {
           ^
 </code></pre>
 <p>发生了什么呢？嗯……我们遇到了和<a href="https://doc.rust-lang.org/nomicon/lifetimes.html#example-aliasing-a-mutable-reference">上一章的示例2</a>相同的错误。我们去掉语法糖，会得到这样的代码:</p>
-<pre><code class="language-Rust">struct Foo;
+<pre><pre class="playground"><code class="language-rust">struct Foo;
 
 impl Foo {
     fn mutate_and_share&lt;'a&gt;(&amp;'a mut self) -&gt; &amp;'a Self { &amp;'a *self }
@@ -920,7 +980,7 @@ fn main() {
         }
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>生命周期系统强行把<code>&amp;mut foo</code>的生命周期扩展到'c，以和<code>loan</code>的生命周期以及<code>mutate_and_share</code>的签名匹配。接下来我们调用<code>share</code>，Rust认为我们在给<code>&amp;'c mut foo</code>创建别名，于是拒绝了我们。</p>
 <p>这段程序显然完全符合引用的语义，但是我们的生命周期系统过于粗糙，无法对它进行正确的分析。</p>
 <p>接下来，还有什么普遍的问题吗？关于SEME区域的，大概吧？</p>
@@ -928,10 +988,14 @@ fn main() {
 <h1><a class="header" href="#省略生命周期" id="省略生命周期">省略生命周期</a></h1>
 <p>为了让语言的表达方式更人性化，Rust允许函数的签名中省略生命周期。</p>
 <p>“生命周期位置”指的是你在类型中可以写生命周期的地方。</p>
-<pre><code class="language-Rust">&amp;'a T
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>&amp;'a T
 &amp;'a mut T
 T&lt;'a&gt;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>生命周期的位置可以在“输入”也可以在“输出”：</p>
 <ul>
 <li>对于<code>fn</code>定义的函数，“输入”指的是函数签名中的参数的类型，而“输出”是结果的类型。所以<code>fn foo(s: &amp;str) -&gt; (&amp;str, &amp;str)</code>省略了一个在输入位置处的生命周期和两个结果位置的生命周期。注意，<code>fn</code>方法定义中的输入位置不包括<code>impl</code>头处的生命周期（自然地，对于trait的默认方法，也不包括trait的头的位置）。</li>
@@ -945,7 +1009,10 @@ T&lt;'a&gt;
 <li>除了上述两种情况，其他省略生命周期的情况都是错误的。</li>
 </ul>
 <p>几个例子：</p>
-<pre><code class="language-Rust">fn print(s: &amp;str);                                      // 省略的
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn print(s: &amp;str);                                      // 省略的
 fn print&lt;'a&gt;(s: &amp;'a str);                               // 完整的
 
 fn debug(lvl: usize, s: &amp;str);                          // 省略的
@@ -966,20 +1033,25 @@ fn args&lt;'a, 'b, T: ToCStr&gt;(&amp;'a mut self, args: &amp;'b [T]) -&gt; &amp
 
 fn new(buf: &amp;mut [u8]) -&gt; BufWriter;                    // 省略的
 fn new&lt;'a&gt;(buf: &amp;'a mut [u8]) -&gt; BufWriter&lt;'a&gt;          // 完整的
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html">https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html</a></p>
 <h1><a class="header" href="#无界生命周期" id="无界生命周期">无界生命周期</a></h1>
 <p>非安全代码经常会凭空变出来一些引用和生命周期。这些生命周期都是无界的。最常见的场景是解引用一个裸指针，然后产生一个拥有无界生命周期的引用。这些生命周期根据上下文的要求，想要多大就可以有多大。这其实比简单的设为<code>'static</code>更加强大。比如<code>&amp;'static &amp;'a T</code>是无法通过类型检查的，但是无界生命周期可以完美适配<code>&amp;'a &amp;'a T</code>。不过大多数情况下，这种的无界生命周期会被视为`'static'。</p>
 <p>几乎没有哪个引用是<code>'static</code>，所以这样很可能是错误的。<code>transmute</code>和<code>transmute_copy</code>是两种很主要的例外情况。我们应该尽量早的确定无界生命周期的边界，特别是在涉及到函数调用的情况下。</p>
 <p>对于一个函数，任何不是从输入那里来的输出生命周期都是无界的。比如：</p>
-<pre><code class="language-Rust">fn get_str&lt;'a&gt;() -&gt; &amp;'a str;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn get_str&lt;'a&gt;() -&gt; &amp;'a str;
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数会产生一个拥有无界生命周期的<code>&amp;str</code>。最简单的避免无界生命周期的方式就是在函数声明中运用生命周期省略。如果一个输出生命周期被省略了，它必须受限于一个输入生命周期。当然它有可能被赋予了一个错误的生命周期，但是这样通常只会产生一个编译错误，总比允许它破坏内存安全要好。</p>
 <p>在函数的内部，限制生命周期范围是极容易出错的。最安全且简单的限制生命周期的方法是将它作为一个有有界生命周期的函数的返回值。但是，如果这个不被接受，引用可以被设置成一个特别的生命周期。不幸的是，我们不可能为函数所有的生命周期命名。（<em>译注：我真的没看懂这一段在说什么……强烈建议看原文，不要看我</em>）</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/hrtb.html">https://doc.rust-lang.org/nomicon/hrtb.html</a></p>
 <h1><a class="header" href="#高阶trait边界hrtb" id="高阶trait边界hrtb">高阶trait边界(HRTB)</a></h1>
 <p>Rust的<code>Fn</code> trait是个神奇的存在。比如，我们可以写出这样的代码：</p>
-<pre><code class="language-Rust">struct Closure&lt;F&gt; {
+<pre><pre class="playground"><code class="language-rust">struct Closure&lt;F&gt; {
     data: (u8, u16),
     func: F
 }
@@ -998,9 +1070,9 @@ fn main() {
     let clo = Closure{ data: (0, 1), func: do_it };
     println!(&quot;{}&quot;, clo.call());
 }
-</code></pre>
+</code></pre></pre>
 <p>如果我们像在生命周期那一章里一样地去掉这段代码的语法糖，我们会发现一些问题：</p>
-<pre><code class="language-Rust">struct Closure&lt;F&gt; {
+<pre><pre class="playground"><code class="language-rust">struct Closure&lt;F&gt; {
     data: (u8, u16),
     func: F,
 }
@@ -1021,11 +1093,15 @@ fn main() {
         println!(&quot;{}&quot;, clo.call());
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>我们究竟应该怎么表示<code>F</code>的trait边界里的生命周期呢？这里需要一个生命周期，但是在我们进入<code>call</code>函数之前我们都不知道生命周期的名字！而且，那里的生命周期也是不固定的，<code>&amp;self</code>在那一时间点上是什么生命周期，<code>call</code>就也要是什么生命周期。</p>
 <p>这里我们需要借助高阶trait边界（HRTB, Higher-Rank Trait Bounds）的神奇力量了。我们去掉语法糖之后的代码应该是这样的：</p>
-<pre><code class="language-Rust">where for&lt;'a&gt; F: Fn(&amp;'a (u8, u16)) -&gt; &amp;'a u8,
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>where for&lt;'a&gt; F: Fn(&amp;'a (u8, u16)) -&gt; &amp;'a u8,
+<span class="boring">}
+</span></code></pre></pre>
 <p>（其中<code>Fn(a, b, c） -&gt; d</code>本身就是不确定的<code>Fn</code> trait的语法糖）</p>
 <p><code>for&lt;'a&gt;</code>可以读作“对于<code>'a</code>的所有可能选择”，基本上表示一个无限的列表，包含所有<code>F</code>需要满足的trait边界。不过别紧张，除了<code>Fn</code> trait之外我们很少会遇到需要HRTB的场景，而且即使遇到了我们还有一个神奇的语法糖相助。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/subtyping.html">https://doc.rust-lang.org/nomicon/subtyping.html</a></p>
@@ -1061,7 +1137,7 @@ fn main() {
 <p>在介绍子类型的时候，其实已经包括了为什么<code>&amp;'a T</code>对<code>'a</code>是协变的。当需要一个较短的生命周期时，我们需要能够传递一个更长的生命周期。</p>
 <p>类似的理由也可以解释为什么它对于<code>T</code>是协变的：给一个要求<code>&amp;&amp;'a str</code>的地方传递<code>&amp;&amp;'static T</code>是很合理的。这种间接的引用并不影响对生命周期长度的要求。</p>
 <p>但是同样的逻辑并不适用于<code>&amp;mut</code>。下面的代码演示了为什么<code>&amp;mut</code>对于T是不变的：</p>
-<pre><code class="language-Rust">fn overwrite&lt;T: Copy&gt;(intput: &amp;mut T, new: &amp;mut T) {
+<pre><pre class="playground"><code class="language-rust">fn overwrite&lt;T: Copy&gt;(intput: &amp;mut T, new: &amp;mut T) {
     *input = *new;
 }
 
@@ -1074,7 +1150,7 @@ fn main() {
     // 不好！在打印被释放的内存数据
     println!(&quot;{}&quot;, forever_str);
 }
-</code></pre>
+</code></pre></pre>
 <p><code>overwrite</code>的签名显然是合法的，它接受两个相同类型的可变引用，然后用一个覆盖另外一个。</p>
 <p>但是，如果<code>&amp;mut T</code>对于T是协变的，<code>&amp;mut &amp;'static str</code>将会是<code>&amp;mut &amp;'a str</code>的子类型，这是因为<code>&amp;'static str</code>是<code>&amp;'a str</code>的子类型。这时<code>forever_str</code>的生命周期就缩减到和<code>string</code>一样短，<code>overwrite</code>也可以被正常调用。接下来<code>string</code>被释放，等到打印的时候<code>forever_str</code>实际指向了一块释放后的内存空间！所以<code>&amp;mut</code>必须是不变的。</p>
 <p>这是变性的一个基本原则：如果生命周期较短的内容有可能存储在生命周期更长的变量里，这时必须要求变性是不变的。</p>
@@ -1082,37 +1158,65 @@ fn main() {
 <p>但是，<code>&amp;'a mut T</code>对于<code>'a</code>却是协变的。<code>'a</code>和<code>T</code>最关键的区别是<code>'a</code>是引用自身的属性，而T则是引用借用的。如果改变了T的类型，T的原始值依然记着它的类型。可如果改变的是生命周期的类型，只有引用自己知道这一变化，因此这是安全的。换句话说，<code>&amp;'a mut T</code>拥有<code>'a</code>，但是仅仅借用T。</p>
 <p><code>Box</code>和<code>Vex</code>的情况就很有趣了，他们是协变的，可是你可以在里面存储值。Rust的类型系统允许它们比其他的类型更聪明。为了理解为什么拥有数据所有权的容器类型对于它们的内容是协变的，我们需要考虑两种可能发生子类型变化的方式：通过值和通过引用。</p>
 <p>如果子类型通过值发生变化，原有的记录类型信息的位置会被移除，也意味着容器再也不能使用原有的值了。所以我们也就不用担心有其他的地方记录着类型的信息。换言之，通过值使用子类型的特性会彻底销毁原有类型的信息。例如，这段代码可以编译并正常运行：</p>
-<pre><code class="language-Rust">fn get_box&lt;'a&gt;(str: &amp;'a str) -&gt; Box&lt;&amp;'a str&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn get_box&lt;'a&gt;(str: &amp;'a str) -&gt; Box&lt;&amp;'a str&gt; {
     // 字符串字面量是&amp;'static str类型，但是我们完全可以“忘掉”这一点，
     // 就让调用者认为这个字符串的生命周期只有这么短
     Box::new(&quot;hello&quot;)
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>如果子类型通过引用发生变化，那么容器类会以<code>&amp;mut Vec&lt;T&gt;</code>类型传递。可是<code>&amp;mut</code>对于它引用的值是不变的，所以<code>&amp;mut Vec&lt;T&gt;</code>对于<code>T</code>实际也是不变的。那么<code>Vec&lt;T&gt;</code>对于<code>T</code>协变这件事在引用的情况下就完全不重要了。</p>
 <p>不过，<code>Box</code>和<code>Vec</code>的协变性在不可变引用的情况下依然有用。所以你可以将<code>&amp;Vec&lt;&amp;'static str&gt;</code>传递给需要<code>&amp;Vec&lt;&amp;'a str&gt;</code>的地方。</p>
 <p>cell类型的不变性可以这样理解：对于cell来说<code>&amp;</code>就是<code>&amp;mut</code>，因为你可以通过<code>&amp;</code>储存值。所以cell必须是不变的，以避免生命周期缩短的问题。</p>
 <p><code>fn</code>是最怪异的，因为它具有混合变性，而且它也是唯一用到了逆变性的地方。下面的函数签名展示了为什么<code>fn(T) -&gt; U</code>对于T是逆变的：</p>
-<pre><code class="language-Rust">// 'a来自父作用域
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 'a来自父作用域
 fn foo(&amp;'a str) -&gt; usize;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个签名表明函数可以接受任何生命周期不小于<code>'a</code>的<code>&amp;str</code>。如果函数对于<code>&amp;'a str</code>是协变的，那么这个函数</p>
-<pre><code class="language-Rust">fn foo(&amp;'static str) -&gt; usize;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo(&amp;'static str) -&gt; usize;
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是它的子类型并且可以使用。但是，这个函数的要求其实更严格，它只能接受<code>&amp;'static str</code>，不能接受其他类型。给它传递一个<code>&amp;'a str</code>是错误的，因为我们不能假设传递给它的值会永远存在。所以，函数对于它的参数类型肯定不能使协变的。</p>
 <p>如果我们反过来应用逆变性，就万事大吉了！需要一个函数来处理永远存在的字符串，而我们提供了一个处理有限生命周期字符串的函数，这也是完全合理的。所以，</p>
-<pre><code class="language-Rust">fn foo(&amp;'a str) -&gt; usize;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo(&amp;'a str) -&gt; usize;
+<span class="boring">}
+</span></code></pre></pre>
 <p>可以被传递给需要</p>
-<pre><code class="language-Rust">fn foo(&amp;'static str) -&gt; usize;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foo(&amp;'static str) -&gt; usize;
+<span class="boring">}
+</span></code></pre></pre>
 <p>的地方。</p>
 <p>那<code>fn(T) -&gt; U</code>对于U怎么又是协变的了呢？看看下面这个函数签名：</p>
-<pre><code class="language-Rust">// 'a来自父作用域
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 'a来自父作用域
 fn foo(usize) -&gt; &amp;'a str;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数声明它将返回一个生命周期长于<code>'a</code>的引用。那么下面这个函数</p>
-<pre><code class="language-Rust">fn foot(usize) -&gt; &amp;'static str;
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn foot(usize) -&gt; &amp;'static str;
+<span class="boring">}
+</span></code></pre></pre>
 <p>用在这里是完全可以的，因为它的的确确返回了一个生命周期长于<code>'a</code>的引用。所以函数对于它的返回值是协变的。</p>
 <p><code>*const</code>和<code>&amp;</code>有着完全一样的语义，所以变性也是一样的。<code>*mut</code>正相反，它可以解引用出一个<code>&amp;mut</code>，所以和cell一样，它也是不变的。</p>
 <p>以上规则都是针对标准库提供的类型，那么自己定义的类型又如何确定变性呢？简单点说，结构体会继承它的成员的变性。如果结构体<code>Foo</code>有一个成员<code>a</code>，它使用了结构体的泛型参数<code>A</code>，那么<code>Foo</code>对于<code>A</code>的变性就等于<code>a</code>对于<code>A</code>的变性。可如果<code>A</code>被用在了多个成员中：</p>
@@ -1121,7 +1225,10 @@ fn foo(usize) -&gt; &amp;'a str;
 <li>如果所有用到A的成员都是逆变的，那么Foo对于A也是逆变的</li>
 <li>其他的情况，Foo对于A是不变的</li>
 </ul>
-<pre><code class="language-Rust">use std::cell::Cell;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::cell::Cell;
 
 struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
     a: &amp;'a A,     // 对于'a和A协变
@@ -1142,37 +1249,50 @@ struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
     k1: fn(Mixed) -&gt; usize, // 对于Mix本该是逆变的，但是……
     k2: Mixed,              // 其实对Mixed是不变的，发生变性冲突的都是不变的
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/dropck.html">https://doc.rust-lang.org/nomicon/dropck.html</a></p>
 <h1><a class="header" href="#drop检查" id="drop检查">Drop检查</a></h1>
 <p>我们已经知道生命周期给我们提供了一些很简单的规则，以保证我们永远不会读取悬垂引用。但是，到目前为止我们提到生命周期的长短时，指的都是非严格的关系。也就是说，当我们写<code>'a: 'b</code>的时候，<code>'a</code>其实也可以和<code>'b</code>一样长。乍一看，这一点没什么意义。本来也不会有两个东西被同时销毁的，不是吗？我们去掉下面的<code>let</code>表达式的语法糖看看：</p>
-<pre><code class="language-Rust">let x;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x;
 let y;
-</code></pre>
-<pre><code class="language-Rust">{
+<span class="boring">}
+</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>{
     let x;
     {
         let y;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>每一个都创建了自己的作用域，可以很清楚地看出来一个在另一个之前被销毁。但是，如果是下面这样的呢？</p>
-<pre><code class="language-Rust">let (x, y) = (vec![], vec![]);
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let (x, y) = (vec![], vec![]);
+<span class="boring">}
+</span></code></pre></pre>
 <p>有哪一个比另一个存活更长吗？答案是，没有，没有哪个严格地比另一个长。当然，x和y中肯定有一个比另一个先销毁，但是销毁的顺序是不确定的。并非只有元组是这样，复合结构体从Rust 1.0开始就不会保证它们的销毁顺序。</p>
 <p>我们已经清楚了元组和结构体这种内置复合类型的行为了。那么Vec这样的类型又是什么样的呢？Vec必须通过标准库代码手动销毁它的元素。通常来说，所有实现了Drop的类型在临死前都有一次回光返照的机会。所以，对于实现了Drop的类型，编译器没有充分的理由判断它们的内容的实际销毁顺序。</p>
 <p>可是我们为什么要关心这个？因为如果系统不够小心，就可能搞出来悬垂指针。考虑下面这个简单的程序：</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
+<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
 
 fn main() {
     let (inspector, days);
     days = Box::new(1);
     inspector = Inspector(&amp;days);
 }
-</code></pre>
+</code></pre></pre>
 <p>这段程序是正确且可以正常编译的。<code>days</code>并不严格地比<code>inspector</code>存活得更长，但这没什么关系。只要<code>inspector</code>还存活着，<code>days</code>就一定也活着。</p>
 <p>可如果我们添加一个析构函数，程序就不能编译了！</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
+<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
 
 impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
@@ -1187,7 +1307,7 @@ fn main() {
     // 如果days碰巧先被销毁了
     // 那么当销毁Inspector的时候，它会读取被释放的内存
 }
-</code></pre>
+</code></pre></pre>
 <pre><code>error: `days` does not live long enough
   --&gt; &lt;anon&gt;:15:1
    |
@@ -1207,7 +1327,7 @@ error: aborting due to previous error
 <p>遵守这一规则（大部分情况下）是满足借用检查器要求的必要条件，同时是满足安全要求的充分非必要条件。也就是说，如果类型遵守上述规则，它就一定可以安全地drop。</p>
 <p>之所以并不总是满足借用检查器要求的必要条件，是因为有时类型借用了数据但是在Drop的实现里没有访问这些数据。</p>
 <p>例如，上面的<code>Inspector</code>的这一变体就不会访问借用的数据：</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
+<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
 
 impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
@@ -1222,9 +1342,9 @@ fn main() {
     // 假设days碰巧先被销毁。
     // 可当Inspector被销毁时，它的析构函数也不会访问借用的days。
 }
-</code></pre>
+</code></pre></pre>
 <p>同样，这个变体也不会访问借用的数据：</p>
-<pre><code class="language-Rust">use std::fmt;
+<pre><pre class="playground"><code class="language-rust">use std::fmt;
 
 struct Inspector&lt;T: fmt::Display&gt;(T, &amp;'static str);
 
@@ -1241,7 +1361,7 @@ fn main() {
     // 假设days碰巧先被销毁。
     // 可当Inspector被销毁时，它的析构函数也不会访问借用的days。
 }
-</code></pre>
+</code></pre></pre>
 <p>但是，借用检查器在分析<code>main</code>函数的时候会拒绝上面两段代码，并指出<code>days</code>存活得不够长。</p>
 <p>这是因为，当借用检查分析<code>main</code>函数的时候，它并不知道每个<code>Inspector</code>的<code>Drop</code>实现的内部细节。它只知道inspector的析构函数有访问借用数据的可能。</p>
 <p>因此，drop检查器强制要求一个值借用的所有数据的生命周期必须严格长于值本身。</p>
@@ -1251,17 +1371,24 @@ fn main() {
 <p>未来的版本中，分析过程会更加精细，以减少安全的代码被拒绝的情况。比如上面的两个<code>Inspector</code>，它们知道在销毁过程中不应该被检查。</p>
 <p>同时，有一个还未稳定的属性可以用来（非安全地）声明类型的析构函数保证不会访问过期的数据，即使类型的签名显示有这种可能存在。</p>
 <p>这个属性是<code>my_dangle</code>，在<a href="https://github.com/rust-lang/rfcs/blob/master/text/1327-dropck-param-eyepatch.md">RFC 1327</a>中被引入。我们可以这样将其放在上面的<code>Inspector</code>例子里：</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
 
 unsafe impl&lt;#[may_dangle] 'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
         println!(&quot;Inspector(_, {}) knows when *not* to inspect.&quot;, self.1);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>使用这个属性要求<code>Drop</code>的实现被标为<code>unsafe</code>，因为编译器将不会检查有没有过期的数据（比如<code>self.0</code>）被访问。</p>
 <p>这个属性可以赋给任意数量的生命周期和类型参数。下面这个例子里，我们声明我们不会访问有生命周期<code>'b</code>的引用背后的数据，而类型<code>T</code>也只会被用来转移或销毁。但是我们没有为<code>'a</code>和<code>U</code>添加属性，因为我们确实会用到这个生命周期和类型：</p>
-<pre><code class="language-Rust">use std::fmt::Display;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::fmt::Display;
 
 struct Inspector&lt;'a, 'b, T, U: Display&gt;(&amp;'a u8, &amp;'b u8, T, U);
 
@@ -1270,7 +1397,8 @@ unsafe impl&lt;'a, #[may_dangle] 'b, #[may_dangle] T, U: Display&gt; Drop for In
         println!(&quot;Inspector({}, _, _, {})&quot;, self.0, self.3);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>上面的例子中，哪些数据不会被用到是一目了然的。但是，有时候这些泛型参数会被间接地访问。间接访问的形式包括：</p>
 <ul>
 <li>使用回调函数</li>
@@ -1278,7 +1406,10 @@ unsafe impl&lt;'a, #[may_dangle] 'b, #[may_dangle] T, U: Display&gt; Drop for In
 </ul>
 <p>（在日后的版本里可能增加其他间接访问的途径。）</p>
 <p>以下是使用回调的例子：</p>
-<pre><code class="language-Rust">struct Inspector&lt;T&gt;(T, &amp;'static str, Box&lt;for &lt;'r&gt; fn(&amp;'r T) -&gt; String&gt;);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Inspector&lt;T&gt;(T, &amp;'static str, Box&lt;for &lt;'r&gt; fn(&amp;'r T) -&gt; String&gt;);
 
 impl&lt;T&gt; Drop for Inspector&lt;T&gt; {
     fn drop(&amp;mut self) {
@@ -1287,9 +1418,13 @@ impl&lt;T&gt; Drop for Inspector&lt;T&gt; {
                  (self.2)(&amp;self.0), self.1);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是trait方法调用的例子：</p>
-<pre><code class="language-Rust">use std::fmt;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::fmt;
 
 struct Inspector&lt;T: fmt::Display&gt;(T, &amp;'static str);
 
@@ -1301,7 +1436,8 @@ impl&lt;T: fmt::Display&gt; Drop for Inspector&lt;T&gt; {
                  self.0, self.1);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当然，这些访问可以进一步地被隐藏在其他的析构函数调用的方法里，而不仅是直接写在函数中。</p>
 <p>上面的几个例子里，<code>&amp;'a u8</code>都在析构函数里被访问了。如果给它添加<code>#[may_dangle]</code>属性，这些类型很可能会产生借用检查器无法捕捉的错误，引发不可预料的灾难。所以最好能避免使用这个属性。</p>
 <h2><a class="header" href="#drop检查的故事讲完了吗" id="drop检查的故事讲完了吗">drop检查的故事讲完了吗？</a></h2>
@@ -1309,35 +1445,50 @@ impl&lt;T: fmt::Display&gt; Drop for Inspector&lt;T&gt; {
 <p>原文地址：<a href="https://doc.rust-lang.org/nomicon/phantom-data.html">https://doc.rust-lang.org/nomicon/phantom-data.html</a></p>
 <h1><a class="header" href="#phantomdata幽灵数据" id="phantomdata幽灵数据">PhantomData（幽灵数据）</a></h1>
 <p>在编写非安全代码时，我们常常遇见这种情况：类型或生命周期逻辑上与一个结构体关联起来了，但是却不属于结构体的任何一个成员。这种情况对于生命周期尤为常见。比如，<code>&amp;'a [T]</code>的<code>Iter</code>大概是这么定义的：</p>
-<pre><code class="language-Rust">struct Iter&lt;'a, T: 'a&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Iter&lt;'a, T: 'a&gt; {
     ptr: *const T,
     end: *const T,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是，因为<code>'a</code>没有在结构体内被使用，它是无界的。由于一些历史原因，无界生命周期和类型禁止出现在结构体定义中。所以我们必须想办法在结构体内用到这些类型，这也是正确的变性检查和drop检查的必要条件。</p>
 <p>我们使用一个特殊的标志类型<code>PhantomData</code>做到这一点。<code>PhantomData</code>不消耗存储空间，它只是模拟了某种类型的数据，以方便静态分析。这么做比显式地告诉类型系统你需要的变性更不容易出错，而且还能提供drop检查需要的信息。</p>
 <p><code>Iter</code>逻辑上包含一系列<code>&amp;'a T</code>，所以我们用<code>PhantomData</code>这样去模拟它：</p>
-<pre><code class="language-Rust">use std::marker;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker;
 
 struct Iter&lt;'a, T: 'a&gt; {
     ptr: *const T,
     end: *const T,
     _marker: marker::PhantomData&lt;&amp;'a T&gt;,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是这样，生命周期变得有界了，你的迭代器对于<code>'a</code>和<code>T</code>也可变了。一切尽如人意。</p>
 <p>另一个重要的例子是<code>Vec</code>，它差不多是这么定义的：</p>
-<pre><code class="language-Rust">struct Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Vec&lt;T&gt; {
     data: *const T, // *const是可变的！
     len: usize,
     cap: usize,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>和之前的例子不同，这个定义已经满足我们的各种要求了。<code>Vec</code>的每一个泛型参数都被至少一个成员使用过了。非常完美！</p>
 <p>你高兴的太早了。</p>
 <p>Drop检查器会判断<code>Vec&lt;T&gt;</code>并不拥有T类型的值，然后它认为无需担心Vec在析构函数里能不能安全地销毁T，再然后它会允许人们创建不安全的Vec析构函数。</p>
 <p>为了让drop检查器知道我们确实拥有T类型的值，也就是需要在销毁Vec的时候同时销毁T，我们需要添加一个额外的PhantomData：</p>
-<pre><code class="language-Rust">use std::marker:
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker:
 
 struct Vec&lt;T&gt; {
     data: *const T, // *const是可变的！
@@ -1345,7 +1496,8 @@ struct Vec&lt;T&gt; {
     cap: usize,
     _marker: marker::PhantomData&lt;T&gt;,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>让裸指针拥有数据是一个很普遍的设计，以至于标准库为它自己创造了一个叫<code>Unique&lt;T&gt;</code>的组件，它可以：</p>
 <ul>
 <li>封装一个<code>*const T</code>处理变性</li>
@@ -1370,7 +1522,10 @@ struct Vec&lt;T&gt; {
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/borrow-splitting.html">https://doc.rust-lang.org/nomicon/borrow-splitting.html</a></p>
 <h1><a class="header" href="#分解借用" id="分解借用">分解借用</a></h1>
 <p>可变引用的Mutex属性在处理复合类型时能力非常有限。借用检查器只能理解一些简单的东西，而且极易失败。他对结构体还算是充分了解，知道结构体的成员可能被分别借用。所以这段代码现在可以正常工作：</p>
-<pre><code class="language-Rust">struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Foo {
     a: i32,
     b: i32,
     c: i32,
@@ -1384,13 +1539,18 @@ let c = &amp;x.c;
 let c2 = &amp;x.c;
 *a += 10;
 println!(&quot;{} {} {} {}&quot;, a, b, c, c2);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是，借用检查器对于数组和slice的理解却是一团浆糊，所以这段代码无法通过检查：</p>
-<pre><code class="language-Rust">let mut x = [1, 2, 3];
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut x = [1, 2, 3];
 let a = &amp;mut x[0];
 let b = &amp;mut x[1];
 println!(&quot;{} {}&quot;, a, b);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <pre><code>&lt;anon&gt;:4:14: 4:18 error: cannot borrow `x[..]` as mutable more than once at a time
 &lt;anon&gt;:4 let b = &amp;mut x[1];
                       ^~~~
@@ -1409,7 +1569,10 @@ error: aborting due to 2 previous errors
 </code></pre>
 <p>借用检查器连这个简单的场景都理解不了，那它更不可能理解一些通用容器类型了，比如说树，尤其是出现不同的键对应相同的值的时候。</p>
 <p>为了能“教育”借用检查器我们的所作所为是正确的，我们还是要使用非安全代码。比如，可变slice暴露了一个<code>split_at_mut</code>的方法，它接收一个slice然后返回两个可变slice。一个包括索引值左边所有的值，另一个包含右边所有的值。我们知道这个方法是安全的，因为两个slice没有重叠部分，也就不会出现别名问题。但是它的实现还是要涉及到非安全的内容：</p>
-<pre><code class="language-Rust">fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
     let len = self.len();
     let ptr = self.as_mut_ptr();
     assert!(mid &lt;= len);
@@ -1418,21 +1581,29 @@ error: aborting due to 2 previous errors
          from_raw_parts_mut(ptr.offset(mid as isize), len - mid))
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这有一点难懂。为了避免两个<code>&amp;mut</code>指向相同的值，我们通过裸指针显式创建了两个全新的slice。</p>
 <p>不过迭代器产生可变引用的方法更加难懂。迭代器trait的定义如下：</p>
-<pre><code class="language-Rust">trait Iterator {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait Iterator {
     typr Item;
 
     fn next(&amp;mut self) -&gt; Option&lt;Self::Item&gt;;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这份定义里，<code>Self::Item</code>与<code>slef</code>没有直接关系。也就是说我们可以连续调用<code>next</code>很多次，并且同时保存着所有的结果。对于值的迭代器这么做完全可以，完全符合语义。对于共享引用这么做也没什么问题，因为允许任意过个共享引用指向同一个值（当然迭代器本身需要是独立于被共享内容的对象）。</p>
 <p>但是可变引用就麻烦了。乍一看，可变引用完全不适用这个API，因为那会产生多个指向相同对象的可变引用。</p>
 <p>可实际上它能够正常工作，这是因为迭代器是一个一次性对象。<code>IterMut</code>生成的东西最多只会生成一次，所以实际上我们没有生成多个指向相同数据的可变指针。</p>
 <p>更不可思议的是，可变迭代器对于许多类型的实现甚至不需要非安全代码！</p>
 <p>例如，下面是单向列表的代码：</p>
-<pre><code class="language-Rust">type Link&lt;T&gt; = Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>type Link&lt;T&gt; = Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;;
 
 struct Node&lt;T&gt; {
     elem: T,
@@ -1461,9 +1632,13 @@ impl&lt;'a, T&gt; Iterator for IterMut&lt;'a, T&gt; {
         })
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是可变slice：</p>
-<pre><code class="language-Rust">use std::mem;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::mem;
 
 pub struct IterMut&lt;'a, T: 'a&gt;(&amp;'a mut[T]);
 
@@ -1491,9 +1666,13 @@ impl&lt;'a, T&gt; DoubleEndedIterator for IterMut&lt;'a, T&gt; {
         r.get_mut(0)
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>还有二叉树：</p>
-<pre><code class="language-Rust">use std::collections::VecDeque;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::collections::VecDeque;
 
 type Link&lt;T&gt; = Option&lt;Box&lt;Node&lt;T&gt;&gt;&gt;;
 
@@ -1595,13 +1774,17 @@ impl&lt;'a, T&gt; DoubleEndedIterator for IterMut&lt;'a, T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>所有这些都是完全安全而且能稳定运行的！这已经超出了我们之前看过的简单结构体的例子：Rust能够理解你把一个可变引用安全地分解为多个部分。接下来我们可以通过Option永久地访问这个引用（或者像对于slice那样，替换为一个空的slice）。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/conversions.html">https://doc.rust-lang.org/nomicon/conversions.html</a></p>
 <h1><a class="header" href="#类型转换" id="类型转换">类型转换</a></h1>
 <p>到目前为止，我们的程序还是一堆散乱的字节，而类型系统拍马赶到教给我们如何正确使用这些字节。将字节翻译成有意义的类型，这件事有两个主要问题：将完全相同的一组字节解析成不同的类型，以及让不同的字节在不同的类型中有相同的含义。因为Rust喜欢将一些重要的属性附加在类型上，这些问题就变得尤其普遍。所以Rust也提供了许多方法解决这一问题。</p>
 <p>我们先来看看安全Rust如何重新解析值。最普通的方法是将值的各个组成部分拆分出来，再用它们重新构建一个新的类型的值。例如</p>
-<pre><code class="language-Rust">struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Foo {
     x: u32,
     y: u16,
 }
@@ -1615,7 +1798,8 @@ fn reinterpret(foo: Foo) -&gt; Bar {
     let Foo { x, y } = foo;
     Bar { a: x, b: y }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>可是这种方法显然很烦人。对于一般的类型转换场景，Rust提供了更加人性化的选择。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/coercions.html">https://doc.rust-lang.org/nomicon/coercions.html</a></p>
 <h1><a class="header" href="#强制类型转换" id="强制类型转换">强制类型转换</a></h1>
@@ -1660,7 +1844,7 @@ fn reinterpret(foo: Foo) -&gt; Bar {
 <li>代码块中的最后一个表达式：<code>let x: U = { ..; e }</code></li>
 </ul>
 <p>注意，在匹配trait的时候不会发生强制类型转换（receiver除外，具体见下）。也就是说，如果为<code>U</code>实现了一个trait，<code>T</code>可以强制转换为<code>U</code>，并不能认为<code>T</code>也实现了这个trait。例如，下面的代码无法通过类型检查，虽然<code>t</code>可以强制转换为<code>&amp;T</code>，而且有一个<code>&amp;T</code>的trait实现。</p>
-<pre><code class="language-Rust">trait Trait {}
+<pre><pre class="playground"><code class="language-rust">trait Trait {}
 
 fn foo&lt;X: Trait&gt;(t: X) {}
 
@@ -1670,7 +1854,7 @@ fn main() {
     let t: &amp;mut i32 = &amp;mut 0;
     foo(t);
 }
-</code></pre>
+</code></pre></pre>
 <pre><code>&lt;anon&gt;:10:5: 10:8 error: the trait bound `&amp;mut i32 : Trait` is not satisfied [E0277]
 &lt;anon&gt;:10     foo(t);
               ^~~
@@ -1747,17 +1931,17 @@ fn main() {
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/checked-uninit.html">https://doc.rust-lang.org/nomicon/checked-uninit.html</a></p>
 <h1><a class="header" href="#安全方式" id="安全方式">安全方式</a></h1>
 <p>和C一样，所有栈上的变量在显式赋值之前都是未初始化的。而和C不同的是，Rust禁止你在赋值之前读取它们：</p>
-<pre><code class="language-Rust">fn main() {
+<pre><pre class="playground"><code class="language-rust">fn main() {
     let x: i32;
     println!(&quot;{}&quot;, x);
 }
-</code></pre>
+</code></pre></pre>
 <pre><code>src/main.rs:3:20: 3:21 error: use of possibly uninitialized variable: `x`
 src/main.rs:3     println!(&quot;{}&quot;, x);
                                  ^
 </code></pre>
 <p>这个错误基于分支分析：任何一个分支在第一次使用<code>x</code>之前都必须对它赋值。有意思的是，如果每一个分支都只赋值一次的话，Rust并不要求变量是可变的。但是，这个分析过程没有配合常量分析。所以下面这段代码可以编译：</p>
-<pre><code class="language-Rust">fn main() {
+<pre><pre class="playground"><code class="language-rust">fn main() {
     let x: i32;
 
     if true {
@@ -1768,21 +1952,21 @@ src/main.rs:3     println!(&quot;{}&quot;, x);
 
     println!(&quot;{}&quot;, x);
 }
-</code></pre>
+</code></pre></pre>
 <p>但是这段却不能编译：</p>
-<pre><code class="language-Rust">fn main() {
+<pre><pre class="playground"><code class="language-rust">fn main() {
     let x: i32;
     if true {
         x = 1;
     }
     println!(&quot;{}&quot;, x);
 }
-</code></pre>
+</code></pre></pre>
 <pre><code>src/main.rs:6:17: 6:18 error: use of possibly uninitialized variable: `x`
 src/main.rs:6   println!(&quot;{}&quot;, x);
 </code></pre>
 <p>而这一段又可以编译：</p>
-<pre><code class="language-Rust">fn main() {
+<pre><pre class="playground"><code class="language-rust">fn main() {
     let x: i32;
     if true {
         x = 1;
@@ -1791,9 +1975,12 @@ src/main.rs:6   println!(&quot;{}&quot;, x);
     // 不关心其他的未初始化变量的分支
     // 因为我们并不使用那些分支
 }
-</code></pre>
+</code></pre></pre>
 <p>当然，虽然分析过程不知道变量的实际值，它对依赖和控制流程的理解还是比较深入的。比如，这段代码是正确的：</p>
-<pre><code class="language-Rust">let x: i32;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x: i32;
 
 loop {
     // Rust不知道这个分支会被无条件执行
@@ -1808,43 +1995,55 @@ loop {
 // 它也知道如果没有执行break的话，代码不会运行到这里
 // 所以在这里x一定已经被初始化了
 println!(&quot;{}&quot;, x);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>如果值从变量中移出且变量类型不是Copy，那么变量逻辑上处于未初始化状态。就是说：</p>
-<pre><code class="language-Rust">fn main() {
+<pre><pre class="playground"><code class="language-rust">fn main() {
     let x = 0;
     let y = Box::new(0);
     let z1 = x; // x仍然是合法的，因为i32是Copy
     let z2 = y; // y现在逻辑上未初始化，因为Box不是Copy
 }
-</code></pre>
+</code></pre></pre>
 <p>但是，这个例子中对<code>y</code>重新赋值要求<code>y</code>是可变的，因为安全Rust能够观察到<code>y</code>的值发生了变化：</p>
-<pre><code class="language-Rust">fn main() {
+<pre><pre class="playground"><code class="language-rust">fn main() {
     let mut y = Box::new(0);
     let z = y; // y现在逻辑上未初始化，因为Box不是Copy
     y = Box::new(1); // 重新初始化y
 }
-</code></pre>
+</code></pre></pre>
 <p>否则<code>y</code>会被视为一个全新的变量。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/drop-flags.html">https://doc.rust-lang.org/nomicon/drop-flags.html</a></p>
 <h1><a class="header" href="#drop标志" id="drop标志">Drop标志</a></h1>
 <p>前一章的例子涉及到Rust的一个有趣的问题。我们看到我们可以安全地为一段内存初始化、反初始化、再初始化。对于Copy类型，这一点不是很重要，因为数据不过是一堆字节而已。但是对于有析构函数的类型就是另外一回事了：变量每次被赋值或者离开作用域的时候，Rust都需要判断是否要调用析构函数。在有条件地初始化的情况下，Rust是如何做到这一点的呢？</p>
 <p>注意，不是所有的赋值操作都需要考虑这一点。通过解引用赋值是一定会触发析构函数，而使用<code>let</code>赋值则一定不会触发：</p>
-<pre><code class="language-Rust">let mut x = Box::new(0); // let传建一个全新的变量，所以一定不会调用drop
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut x = Box::new(0); // let传建一个全新的变量，所以一定不会调用drop
 let y = &amp;mut x;
 *y = Box::new(1);        // 解引用假设被引用变量是初始化过的，所以一定会调用drop
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>只有当覆盖一个已经初始化的变量或者变量的一个子成员时，才需要考虑这个问题。</p>
 <p>Rust实际上是在运行期判断是否销毁变量。当一个变量被初始化和反初始化时，变量会更新它的”drop标志“的状态。通过解析这个标志的值，判断变量是否真的需要执行drop。</p>
 <p>当然，大多数情况下，在编译期就可以知道一个值在每一点的初始化状态。符合这一点的话，编译器理论上可以生成更有效率的代码！比如，无分支的程序有着如下的静态drop语义：</p>
-<pre><code class="language-Rust">let mut x = Box::new(0); // x未初始化；仅覆盖值
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut x = Box::new(0); // x未初始化；仅覆盖值
 let mut y = x;           // y未初始化；仅覆盖值，并设置x为未初始化
 x = Box::new(0);         // x未初始化；仅覆盖值
 y = x;                   // y已初始化；销毁y，覆盖它的值，设置x为未初始化
                          // y离开作用域；y已初始化；销毁y
                          // x离开作用域；x未初始化；什么都不用做
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>类似的，有分支的代码当所有分支中的初始化行为一致的时候，也可以有静态的drop语义：</p>
-<pre><code class="language-Rust">let mut x = Box::new(0); // x未初始化；仅覆盖值
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut x = Box::new(0); // x未初始化；仅覆盖值
 if condition {
     drop(x);             // x失去值；设置x为未初始化
 } else {
@@ -1853,22 +2052,31 @@ if condition {
 }
 x = Box::new(0);         // x未初始化；仅覆盖值
                          // x离开作用域；x已初始化；销毁x
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是，下面的代码则需要运行时信息以正确执行drop：</p>
-<pre><code class="language-Rust">let x;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x;
 if condition {
     x = Box::new(0);   // x未初始化；仅覆盖值
     println!(&quot;{}&quot;, x);
 }
                        // x离开作用域；x可能未初始化
                        // 检查drop标志
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当然，修改为下面的代码就又可以得到静态drop语义：</p>
-<pre><code class="language-Rust">if condition {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>if condition {
     let x = Box::new(0);
     println!(&quot;{}&quot;, x);
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>drop标志储存在栈中，并不在实现Drop的类型里。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/unchecked-uninit.html">https://doc.rust-lang.org/nomicon/unchecked-uninit.html</a></p>
 <h1><a class="header" href="#非安全方式" id="非安全方式">非安全方式</a></h1>
@@ -1884,7 +2092,10 @@ if condition {
 </ul>
 <p>很显然，如果这些函数被滥用的话，很可能导致错误或者未定义行为。它们唯一的要求就是被读写的位置必须已经分配了内存。但是，向任意位置写入任意字节很可能造成不可预测的错误。</p>
 <p>下面的代码集中展示了它们的用法：</p>
-<pre><code class="language-Rust">use std::mem;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::mem;
 use std::ptr;
 
 // 数组的大小是硬编码的但是可以很方便地修改
@@ -1904,7 +2115,8 @@ unsafe {
 }
 
 println!(&quot;{:?}&quot;, x);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>需要注意，你不用担心<code>ptr::write</code>和实现了<code>Drop</code>的或者包含<code>Drop</code>子类型的类型之间无法和谐共处，因为Rust知道这时不会调用<code>drop</code>。类似的，你可以给一个只有局部初始化的结构体的成员赋值，只要那个成员不包含<code>Drop</code>子类型。</p>
 <p>但是，在使用未初始化内存的时候你需要时刻小心，Rust可能会在值未完全初始化的时候就尝试销毁它们。如果一个变量有析构函数，那么变量作用域的每一个代码分支都应该在结束之前完成变量的初始化。否则<a href="https://doc.rust-lang.org/nomicon/unwinding.html">会导致崩溃</a>。</p>
 <p>这就是未初始化内存的全部内容！其他地方基本上不会再涉及到未初始化内存了，所以如果你想跳过本章，请千万小心。</p>
@@ -1915,7 +2127,10 @@ println!(&quot;{:?}&quot;, x);
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/constructors.html">https://doc.rust-lang.org/nomicon/constructors.html</a></p>
 <h1><a class="header" href="#构造函数" id="构造函数">构造函数</a></h1>
 <p>创建一个自定义类型的实例的方法只有一种：先命名，然后一次性初始化它的所有成员：</p>
-<pre><code class="language-Rust">struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Foo {
     a: u8,
     b:u32,
     c: bool,
@@ -1931,7 +2146,8 @@ struct Unit;
 let foo = Foo { a: 0, b: 1, c: false };
 let bar = Bar::X(0);
 let empty = Unit;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是这样。其他的所谓创建类型实例的方式，不过是调用一些函数，而函数的底层还是要依赖于这个真正的构造函数。</p>
 <p>和C++不同，Rust没有很多不同种类的构造函数，比如拷贝、默认、赋值、移动、还有其他各种构造函数。之所以这样的原因有很多，不过归根结底还是因为Rust显式化的设计哲学。</p>
 <p>移动构造函数对于Rust没什么用，因为我们并不需要让类型关心它们在内存上的位置。没一个类型都有可能随时被memcopy到内存中其他的位置上。这也意味和那种存储于栈上却依然可以移动的侵入式链表在Rust中是不可能（安全地）存在的。</p>
@@ -1949,9 +2165,12 @@ let empty = Unit;
 <p><strong>在Rust 1.0中，没有什么合适的方法可以打断这个过程。</strong></p>
 <p>注意，参数是<code>&amp;mut self</code>意味着即使你可以阻止递归销毁，Rust也不允许你将子成员的所有权移出。对于大多数类型来说，这一点完全没问题。</p>
 <p>比如，一个自定义的<code>Box</code>的实现，它的<code>Drop</code>可能长这样：</p>
-<pre><code class="language-Rust">#![feature(ptr_internals, allocator_api)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(ptr_internals, allocator_api)]
 
-use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
+<span class="boring">fn main() {
+</span>use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
 use std::mem;
 use std::ptr::{drop_in_place, NonNull, Unique};
 
@@ -1966,12 +2185,16 @@ impl&lt;T&gt; Drop for Box&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码是正确的，因为当Rust要销毁<code>ptr</code>的时候，它见到的是一个<a href="https://doc.rust-lang.org/nomicon/phantom-data.html">Unique</a>，没有<code>Drop</code>的实现。类似的，也没有人能在销毁后再使用<code>ptr</code>，因为drop函数退出之后，他就不可见了。</p>
 <p>可是这段代码是错误的：</p>
-<pre><code class="language-Rust">#![feature(allocator_api, ptr_internals)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(allocator_api, ptr_internals)]
 
-use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
+<span class="boring">fn main() {
+</span>use std::alloc::{Alloc, Global, GlobalAlloc, Layout};
 use std::ptr::{drop_in_place, Unique, NonNull};
 use std::mem;
 
@@ -1996,28 +2219,40 @@ impl&lt;T&gt; Drop for SuperBox&lt;T&gt; {
         Global.dealloc(c.cast::&lt;u8&gt;(), LayOut::new::&lt;T&gt;());
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当我们在<code>SuperBox</code>的析构函数里回收了<code>box</code>的<code>ptr</code>之后，Rust会继续让<code>box</code>销毁它自己,这时销毁后使用(use-after-free)和两次释放(double-free)的问题立刻接踵而至，摧毁一切。</p>
 <p>注意，递归销毁适用于所有的结构体和枚举类型，不管它有没有实现<code>Drop</code>。所以，这段代码</p>
-<pre><code class="language-Rust">struct Boxy&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Boxy&lt;T&gt; {
     data1: Box&lt;T&gt;,
     data2: Box&lt;T&gt;,
     info: u32,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>在销毁的时候也会调用<code>data1</code>和<code>data2</code>的析构函数，尽管这个结构体本身并没有实现<code>Drop</code>。这样的类型“需要Drop却不是Drop”。</p>
 <p>类似的</p>
-<pre><code class="language-Rust">enum Link {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum Link {
     Next(Box&lt;Link&gt;),
     None,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当（且仅当）一个实例储存着<code>Next</code>变量时，它就会销毁内部的<code>Box</code>成员。</p>
 <p>一般来说这其实是一个很好的设计，它让你在重构数据布局的时候无需费心添加/删除<code>drop</code>函数。但也有很多的场景要求我们必须在析构函数中玩一些花招。</p>
 <p>如果想阻止递归销毁并且在<code>drop</code>过程中将<code>self</code>的所有权移出，通常的安全的做法是使用<code>Option</code>：</p>
-<pre><code class="language-Rust">#![feature(allocator_api, ptr_internals)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(allocator_api, ptr_internals)]
 
-use std::alloc::{Alloc, GlobalAlloc, Global, LayOut};
+<span class="boring">fn main() {
+</span>use std::alloc::{Alloc, GlobalAlloc, Global, LayOut};
 use std::ptr::{drop_in_place, Unique, NonNull};
 use std::mem;
 
@@ -2047,7 +2282,8 @@ impl&lt;T&gt; Drop for SuperBox&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是这段代码显得很奇怪：我们认为一个永远都是<code>Some</code>的成员有可能是<code>None</code>，仅仅因为析构函数中用到了一次。但反过来说这种设计又很合理：你可以在析构函数中调用<code>self</code>的任意方法。<em>在成员被反初始化之后就完全不能这么做了，而不是禁止你搞出一些随意的非法状态</em>。（斜体部分没看懂，建议看原文）</p>
 <p>权衡之后，这是一个可以接受的方案。你可以将它作为你的默认选项。但是，我们希望以后能有一个方法明确声明哪一个成员不会自动销毁。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/leaking.html">https://doc.rust-lang.org/nomicon/leaking.html</a></p>
@@ -2071,7 +2307,10 @@ impl&lt;T&gt; Drop for SuperBox&lt;T&gt; {
 <p>现在，假设Drain正迭代到一半：有一些值被移出，还有一些没移出。这表明Vec里有一堆逻辑上未初始化的数据！我们可以在删除值的时候在Vec里再备份一份，但这种方法的性能是不可忍受的。</p>
 <p>实际上，我们希望Drain在销毁的时候能够修复Vec的后台存储。他要备份那些没有被移除的元素（drain支持子范围），然后修改Vec的<code>len</code>。这种方法甚至还是unwinding安全的！完美！</p>
 <p>看看下面这段代码</p>
-<pre><code class="language-Rust">let mut vec = vec![Box::new(0); e];
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut vec = vec![Box::new(0); e];
 
 {
     // 开始drain，vec无法再被访问
@@ -2087,14 +2326,18 @@ impl&lt;T&gt; Drop for SuperBox&lt;T&gt; {
 
 // 不好，vec[0]已经被销毁了，我们在读一块释放后的内存
 println!(&quot;{}&quot;, vec[0]);
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个显然很不好。我们现在陷入了两难的境地：保证每一步产生一致的状态，需要付出巨大的性能代价（抵消掉了API带来的所有好处）；而不保证一致状态则会在安全代码中产生未定义行为（使API失去稳定性）。</p>
 <p>那我们能做什么呢？我们采用一种简单粗暴的方式保证状态一致性：开始迭代的时候就设置Vec的长度为0，然后在析构函数里根据需要再恢复。这样做，在一切正常的情况下，我们可以用最小的代价获得正确的行为。但是，如果有人就是不管不顾地在迭代中间<code>mem::forget</code>，那么结果就是泄露或者更坏（还可能让Vec处于一种虽然一致但实际上不正确的状态）。由于我们认为<code>mem::forget</code>是安全地，那么这种行为也是安全地。我们把造成更多泄露的泄露叫做泄露扩大化(leak amplification)。</p>
 <h1><a class="header" href="#rc" id="rc">Rc</a></h1>
 <p><code>Rc 的情况很有意思，第一眼看上去它根本不像是一个代理类型。毕竟，它自己管理着它指向的数据，并且在销毁</code>Rc<code>的时候也会同时销毁数据的值。泄露</code>Rc<code>的数据好像并不怎么危险。那会让引用计数持续增长，而数据不会被释放或销毁。这和</code>Box`的行为是一项的，对吧？</p>
 <p>并不是。</p>
 <p>我们看一下这个<code>Rc</code>的简单实现：</p>
-<pre><code class="language-Rust">struct Rc&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Rc&lt;T&gt; {
     ptr: *mut RcBox&lt;T&gt;,
 }
 
@@ -2136,17 +2379,25 @@ impl&lt;T&gt; Drop for Rc&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>要解决这个问题，我们可以检查<code>ref_count</code>并根据情况做一些处理。标准库的做法是直接废弃对象，因为这种情况下你的程序进入了一种非常危险的状态。当然，这是一个十分诡异的边界场景。</p>
 <h1><a class="header" href="#threadscopedjoinguard" id="threadscopedjoinguard">thread::scoped::JoinGuard</a></h1>
 <p><code>thread::scoped</code>可以保证父线程在共享数据离开作用域之前join子线程，通过这种方式子线程可以引用父线程栈中的数据而不需要做什么同步操作。</p>
-<pre><code class="language-Rust">pub fn scoped&lt;'a, F&gt;(f: F) -&gt; JoinGuard&lt;'a&gt;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn scoped&lt;'a, F&gt;(f: F) -&gt; JoinGuard&lt;'a&gt;
     where F: FnOnce() + Send + 'a
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这里<code>f</code>是供其他线程执行的闭包。<code>F: Send + 'a</code>表示闭包引用数据的生命周期是<code>'a</code>，而且它可能拥有这个数据或者数据是一个<code>Sync</code>(说明<code>&amp;data</code>是<code>Send</code>)。</p>
 <p>因为<code>JoinGuard</code>有生命周期，它所用到的数据都是从父线程里借用的。这意味着<code>JoinGuard</code>不能比线程使用的数据存活更长。当<code>JoinGuard</code>被销毁的时候它会阻塞父线程，保在父线程中被引用的数据离开作用域之前子线程都已经终止了。</p>
 <p>用法是这样的：</p>
-<pre><code class="language-Rust">let mut data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 {
     let guards = vec![];
     for x in &amp;mut data {
@@ -2164,9 +2415,13 @@ impl&lt;T&gt; Drop for Rc&lt;T&gt; {
     // 等到线程join后，数据的借用就过期了，数据又可以在主线程中被访问了
 }
 // 数据在这里已经完全改变了。
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个似乎完全能够正常工作！Rust的所有权系统完美地保证了这一点！……不过这一切的前提是析构函数必须被调用。</p>
-<pre><code class="language-Rust">let mut data = Box::new(0);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = Box::new(0);
 {
     let guard = thread::scoped(|| {
         // 好一点的情况是这里会有数据竞争
@@ -2177,7 +2432,8 @@ impl&lt;T&gt; Drop for Rc&lt;T&gt; {
     mem::forget(guard);
 }
 // Box在这里被销毁，而子线程可能会也可能不会在这里访问数据。
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>Duang！保证析构函数能运行是这个api的基础，上面这段代码需要一个全新的设计才行。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/unwinding.html">https://doc.rust-lang.org/nomicon/unwinding.html</a></p>
 <h1><a class="header" href="#展开unwinding" id="展开unwinding">展开(Unwinding)</a></h1>
@@ -2206,7 +2462,10 @@ impl&lt;T&gt; Drop for Rc&lt;T&gt; {
 <p>大多数非安全代码都比较容易实现异常安全。因为它控制着程序运行的每个细节，而且大部分代码不会Panic。但是非安全代码也经常要做诸如在未初始化数据的数组上反复运行外部代码这样的操作。这种代码就需要小心考虑异常安全性了。</p>
 <h2><a class="header" href="#vecpush_all" id="vecpush_all">Vec::push_all</a></h2>
 <p><code>Vec::push_all</code>使用一个<code>slice</code>扩充<code>Vec</code>，由于它没有具体化类型，所以能获得较高的效率。下面是一个简单的实现：</p>
-<pre><code class="language-Rust">impl&lt;T: Clone&gt; Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T: Clone&gt; Vec&lt;T&gt; {
     fn push_all(&amp;mut self, to_push: &amp;[T]) {
         self.reserve(to_push.len());
         unsafe {
@@ -2219,7 +2478,8 @@ impl&lt;T&gt; Drop for Rc&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们不去使用<code>push</code>，因为它会对Vec的容量和<code>len</code>做额外的检查，而有些情况下我们能够明确知道容量是充足的。这段代码的逻辑是完全正确的，但是却有一个问题：它不是异常安全的！<code>set_len</code>、<code>offset</code>和<code>write</code>都没问题，但是<code>clone</code>是一颗引发Panic的炸弹。</p>
 <p><code>Clone</code>的实现是我们无法控制的，它很可能会panic。如果它真的panic了，这个方法会提前退出，但我们之前给Vec设置的更大的长度会一致保持下去。当Vec被访问或者销毁的时候，它会读取未初始化内存！</p>
 <p>解决方法很简单。如果我们要保证我们clone的值都被销毁了，我们可以在每一次循环里设置<code>len</code>。如果我们只是想保证不会出现读取未初始化内存的情况，我们可以在循环之后设置<code>len</code>。</p>
@@ -2265,7 +2525,10 @@ impl&lt;T&gt; Drop for Rc&lt;T&gt; {
 </code></pre>
 <p>基本思想很简单：如果比较操作panic了，我们就把取出的元素塞回到逻辑上未初始化的位置然后退出。访问这个堆的人可能会发现堆的状态是不连续的，但是至少这个方案不会引发二次释放！如果算法正常结束的话，这个设计就和我们最开始不做任何处理的方案一模一样了。</p>
 <p>可惜，Rust并没有这些东西，所以我们只能自己早轮子了！我们把算法的状态储存在一个独立的结构体中，结构体的析构函数起到了”finally“的功能。不管有没有panic，析构函数都会被调用并且清除我们留下状态。</p>
-<pre><code class="language-Rust">struct Hole&lt;'a, T: 'a&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Hole&lt;'a, T: 'a&gt; {
     data: &amp;'a mut [T],
     // elt从始至终都会是Some
     elt: Option&lt;T&gt;,
@@ -2323,7 +2586,8 @@ impl&lt;T: Ord&gt; BinaryHeap&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/poisoning.html">https://doc.rust-lang.org/nomicon/poisoning.html</a></p>
 <h1><a class="header" href="#污染" id="污染">污染</a></h1>
 <p>所有的非安全代码都必须保证最小异常安全性，但是并不是所有的类型都能保证最大异常安全性。即使一个类型保证了这一点，我们的代码也可能把它搞乱。比如，一个整数类型肯定是异常安全的，但是它自己没有语义。而一段代码可能在panic的时候没有正确更新整数的值，因此导致了不连续的状态。</p>
@@ -2347,7 +2611,10 @@ impl&lt;T: Ord&gt; BinaryHeap&lt;T&gt; {
 <p><strong>但是Rust并不会避免一般竞争条件。</strong></p>
 <p>因为要做到这一点其实是不可能的，而且好像也是不必要的。你的硬件是竞争的，操作系统是竞争的，计算机上其他的程序是竞争的，整个世界都是竞争的。任何一个声称可以避免所有竞争条件的系统，即使没有错误，也一定及其难用。</p>
 <p>所以，安全Rust出现死锁，或者因为不正确的同步而做出一些奇怪的行为，这些都是可以接受的。显然这样的程序并不是最理想的程序，但Rust也只能帮你到这了。而且，竞争条件自己不能违反Rust的内存安全性。只有配合上其他的非安全代码，竞争条件才有可能破坏内存安全。比如：</p>
-<pre><code class="language-Rust">use std::thread;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -2371,8 +2638,12 @@ thread::spawn(move || {
 // 这符合竞争条件，因为程序执行得正确与否（panic几乎不可能是正确的）
 // 依赖于线程的执行顺序
 println!(&quot;{}&quot;, data[idx.load(Ordering::SeqCst)]);
-</code></pre>
-<pre><code class="language-Rust">use std::thread;
+<span class="boring">}
+</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -2394,7 +2665,8 @@ if idx.load(Ordering::SeqCst) &lt; data.len() {
         println!(&quot;{}&quot;, data.get_unchecked(idx.load(Ordering::SeqCst)));
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/send-and-sync.html">https://doc.rust-lang.org/nomicon/send-and-sync.html</a></p>
 <h1><a class="header" href="#send和sync" id="send和sync">Send和Sync</a></h1>
 <p>不是所有人都遵守可变性的原则。有一些类型允许你拥有一块内存的多个别名，同时还改变内存的值。除非这些类型使用同步来控制访问，否则它们就不是线程安全的。Rust根据<code>Send</code>和<code>Sync</code>这两个trait获取相关信息。</p>
@@ -2413,20 +2685,28 @@ if idx.load(Ordering::SeqCst) &lt; data.len() {
 <p><code>Rc</code>和<code>UnsafeCell</code>是典型的非线程安全的：它们允许非同步地共享可变状态。可是，裸指针严格来说并不一定非得是非线程安全不可。通过裸指针做任何有意义的事情都需要先对它解引用，这一步就已经是非安全的了。从这个角度来说，有人可能会认为把它标为线程安全的也未尝不可。</p>
 <p>可是，它们被标为非线程安全的主要目的是避免包含它们的类型自动成为线程安全的。这些类型都有着重要的不可追踪的所有权，保证它们线程安全需要花费大量的精力，而他们的作者不太可能做到这一点。<code>Rc</code>就是一个很好的例子，一个包含<code>*mut</code>的类型绝对不能是线程安全的。</p>
 <p>不是自动推导的类型也可以很容易地实现<code>Send</code>和<code>Sync</code>：</p>
-<pre><code class="language-Rust">struct MyBox(*mut u8);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct MyBox(*mut u8);
 
 unsafe impl Send for MyBox {}
 unsafe impl Sync for MyBox {}
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>还有一个很少见的场景，一个类型被自动推导为<code>Send</code>或<code>Sync</code>，但是它其实不满足二者的要求。这是我们可以去掉<code>Send</code>和<code>Sync</code>的实现：</p>
-<pre><code class="language-Rust">#![feature(option_builtin_traits)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(option_builtin_traits)]
 
-// 我对于同步的基础类型有着神奇的语义
+<span class="boring">fn main() {
+</span>// 我对于同步的基础类型有着神奇的语义
 struct SpecialThreadToken(u8);
 
 impl !send for SpecialThreadToken {}
 impl !Sync for SpecialThreadToken {}
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>注意，一个类型自己不可能被不正确地推导为<code>Send</code>和<code>Sync</code>。只有当类型和其他的非安全代码一起实现了一些特殊行为时，它才可能成为一个不正确的<code>Send</code>或<code>Sync</code>。</p>
 <p>大部分使用裸指针的类型都应该把裸指针用一种抽象隐藏起来，以保证类型可以被推导为<code>Send</code>和<code>Sync</code>。比如，所有Rust的标准集合类型都是<code>Send</code>和<code>Sync</code>（在他们包含<code>Send</code>和<code>Sync</code>类型的情况下），虽然它们都大量使用了裸指针处理内存分配和复杂的所有权。类似的，大部分这些集合的迭代器也是<code>Send</code>和<code>Sync</code>，因为它们的行为很像这些集合的<code>&amp;</code>或者<code>&amp;mut</code>。</p>
 <p>TODO：更好地解释什么类型可以是<code>Send</code>和<code>Sync</code>，什么类型不可以。只考虑数据竞争是不是就足够了呢？</p>
@@ -2437,26 +2717,38 @@ impl !Sync for SpecialThreadToken {}
 <p>C11的内存模型试图同时满足开发者对语义的要求、编译器对优化的要求、还有硬件对千奇百怪混乱状态的要求。而我们只希望能写一段程序做我们想让它做的事情，并且要做得快。是不是很不错？</p>
 <h2><a class="header" href="#编译器重排" id="编译器重排">编译器重排</a></h2>
 <p>编译器努力地通过各种复杂的变换，尽可能减少数据依赖和消除死代码。特别是，它可能会彻底改变事件的顺序，或者干脆让某些事件永远不会发生！如果我们写了这样的代码</p>
-<pre><code class="language-Rust">x = 1;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>x = 1;
 y = 3;
 x = 2;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>编译器会发现这段程序最好能变成</p>
-<pre><code class="language-Rust">x = 2;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>x = 2;
 y = 3;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>事件的顺序变了，还有一个事件完全消失了。在单线程的情况下，我们不会察觉有什么区别：毕竟代码执行后可以得到和我们期望的完全相同的状态。但如果程序是多线程的，我们可能确实需要在<code>y</code>被赋值前将<code>x</code>赋值为1。我们希望编译器能做出这一类优化，因为这可以提升程序的性能。可另一方面，我们还希望我们写的程序能完全按照我们的指令行事。</p>
 <h2><a class="header" href="#硬件重排" id="硬件重排">硬件重排</a></h2>
 <p>即使编译器完全明白了我们的意图并且按照我们的期望去工作，硬件还是有可能来找麻烦的。麻烦来自于在内存分层模式下的CPU。你的硬件系统里确实有一些全局共享的内存空间，但是在各个CPU核心看来，这些内存都离得太远，速度也太慢。CPU希望能在它的本地cache里操作数据，只有在cache里没有需要的内存时才委屈地和共享内存打交道。</p>
 <p>毕竟，这不就是cache存在的全部意义吗？如果每一次读取cache都要再去检查共享内存看看数据有没有变化，那么cache还有什么价值呢？最终的结果就是，硬件不能保证相同的事件在两个不同的线程里一定有相同的执行顺序。如果要保证这点，我们必须有一些特殊的方法告诉CPU稍微变笨一点。</p>
 <p>比如，我们已经成功地让编译器保证下面的逻辑：</p>
-<pre><code class="language-Rust">初始状态: x = 0, y = 1
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>初始状态: x = 0, y = 1
 
 线程1         线程2               
 y = 3;       if x == 1 {
 x = 1;           y *= 2;
              }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段程序实际上有两种可能的结果：</p>
 <ul>
 <li><code>y = 3</code>：线程2在线程1完成之前检查了x的值</li>
@@ -2498,7 +2790,7 @@ x = 1;           y *= 2;
 <p>直观看起来，acquire保证在它之后的访问永远在它之后。可在它之前的操作却有可能被重排到它后面、类似的，release保证它之前的操作永远在它之前。但是它后面的操作可能被重排到它前面。</p>
 <p>当线程A释放了一块内存空间，紧接着线程B获取了同一块内存，这时因果关系就确定了。在A释放之前的所有写操作的结果，B在获取之后都能看到。但是，它们和其他线程之间没有确定因果关系。同理，如果A和B访问的是不同的内存，它们也没有因果关系。</p>
 <p>所以，释放-获取的基本用法很简单：你获取一块内存并进入临界区，然后释放内存并离开临界区。比如，一个简单的自旋锁可能是这样的：</p>
-<pre><code class="language-Rust">use std::sync::Arc;
+<pre><pre class="playground"><code class="language-rust">use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
@@ -2516,7 +2808,7 @@ fn main() {
     // 工作完成了，释放锁
     lock.store(false, Ordering::Release);
 }
-</code></pre>
+</code></pre></pre>
 <p>在强顺序平台上，大多数的访问都有释放和获取的语义，释放和获取通常是无开销的。不过在弱顺序平台上不是这样。</p>
 <h2><a class="header" href="#relaxed" id="relaxed">Relaxed</a></h2>
 <p>Relaxed访问是最弱的。它们可以被随意重排，也没有先后关系。但是Relaxed操作依然是原子的。也就是说，它并不算是数据访问，所有对它的读-修改-写操作都是原子的。Relaxed操作适用于那些你希望发生但又并不特别在意的事情。比如，多线程可以使用Relaxed的fetch_add来增加计数器，如果你不使用计数器的值去同步其他的访问，这个操作就是安全的。</p>
@@ -2531,12 +2823,16 @@ fn main() {
 <h1><a class="header" href="#布局" id="布局">布局</a></h1>
 <p>我们先来看看结构体的布局。Vec由三部分组成：一个指向分配空间的指针、空间的大小、以及已经初始化的元素的数量。</p>
 <p>简单来说，我们的设计只要这样：</p>
-<pre><code class="language-Rust">pub struct Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct Vec&lt;T&gt; {
     ptr: *mut T,
     cap: usize,
     len: usize,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码可以通过编译。可不幸的是，它是不正确的。首先，编译器产生的变性过于严格。所以<code>&amp;Vev&lt;&amp;'static str&gt;</code>不能当做<code>&amp;Vev&lt;&amp;'a str&gt;</code>使用。更主要的是，它会给drop检查器传递错误的所有权信息,因为编译器会保守地假设我们不拥有任何的值。关于变性和drop检查的细节，请见<a href="https://doc.rust-lang.org/nomicon/ownership.html">所有权和生命周期</a>。</p>
 <p>.
 正如我们在所有权一章见到的，当裸指针指向一块我们拥有所有权的位置，我们应该使用<code>Unique&lt;T&gt;</code>代替<code>*mut T</code>。尽管Unique是不稳定的，我们尽可能不去使用它。</p>
@@ -2548,7 +2844,10 @@ fn main() {
 <li>指针永远不为null（所以`Option&lt;Vec<T>&gt;可以做空指针优化）</li>
 </ul>
 <p>除了最后一点，其余的我们都可以用稳定的Rust实现：</p>
-<pre><code class="language-Rust">use std::marker::PhantomData;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker::PhantomData;
 use std::ops::Deref;
 use std::mem;
 
@@ -2571,27 +2870,35 @@ impl&lt;T&gt; Unique&lt;T&gt; {
         self.ptr as *mut T
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>可是，声明数据不为0的方法是不稳定的，而且短期内都不太可能会稳定下来。s欧意我们还是接受现实，使用比标准库的Unique：</p>
-<pre><code class="language-Rust">#![feature(ptr_internals)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(ptr_internals)]
 
-use std::ptr::{Unique, self};
+<span class="boring">fn main() {
+</span>use std::ptr::{Unique, self};
 
 pub struct Vec&lt;T&gt; {
     ptr: Unique&lt;T&gt;,
     cap: usize,
     len: usize,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>如果你不太在意空指针优化，那么你可以使用稳定代码。但是我们之后的代码会依赖于这个优化去设计。还要注意，调用<code>Unique::new</code>是非安全的，因为给它传递null属于未定义行为。我们的稳定Unique就不需要让<code>new</code>是非安全的，因为它没有对于它的内容做其他的保证。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-alloc.html">https://doc.rust-lang.org/nomicon/vec-alloc.html</a></p>
 <h1><a class="header" href="#内存分配" id="内存分配">内存分配</a></h1>
 <p>使用Unique给Vec（以及所有的标准库集合）造成了一个问题：空的Vec不会分配内存。如果既不能分配内存，又不能给<code>ptr</code>传递一个空指针，那我们在<code>Vec::new</code>中能做什么呢？好吧，我们就胡乱往Vec里塞点东西。</p>
 <p>这么做没什么问题，因为我们用<code>cap == 0</code>来表示没有分配空间。我们也不用做什么特殊的处理，因为我们通常都会去检查<code>cap &gt; len</code>或者<code>len &gt; 0</code>。Rust推荐的放进去的值是<code>mem::align_of::&lt;T&gt;()</code>。Unique则提供了一个更方便的方式<code>Unique::empty()</code>。我们会在很多的地方用到<code>empty</code>，因为有时候我们没有实际分配的内存，而<code>null</code>会降低编译器的效率。</p>
 <p>所以：</p>
-<pre><code class="language-Rust">#![feature(alloc, heap_api)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span>#![feature(alloc, heap_api)]
 
-use std::mem;
+<span class="boring">fn main() {
+</span>use std::mem;
 
 impl&lt;T&gt; Vec&lt;T&gt; {
     fn new -&gt; Self {
@@ -2599,25 +2906,34 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         Vec { ptr: Unique::empty(), len: 0, cap: 0 }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们插入了一个assert语句，因为零尺寸类型需要做很多特殊的处理，我们希望以后再讨论这个问题。如果没有assert的话，我们之前的代码会出现很多严重的问题。</p>
 <p>接下来我们要讨论在需要内存空间的时候，我们要做些什么。这里我们需要使用其他的heap API。这些API允许我们直接和Rust的分配器（默认是jemalloc）打交道。</p>
 <p>我们还需要能够处理内存不足（OOM）的方法。标准库会调用<code>std::alloc::oom()</code>，而这个函数会调用<code>oom</code>langitem。默认情况下，它就是执行一个非法的CPU指令来中止程序。之所以要终止程序而不是panic，是因为栈展开的过程也可能需要分配内存，而你的分配器早就告诉过你“嘿，我这没有更多的内存了”。</p>
 <p>当然，这么做显得有一点傻乎乎，因为大多数平台正常情况下都不会真的没有内存。如果你的程序正常地耗尽了内存，操作系统可能会用其他的方式kill掉它。真的遇到OOM，最有可能的原因是我们一次性的请求严重过量的内存（比如，理论地址空间的一半）。这种情况下其实可以panic而不用担心有什么问题。不过，我们希望尽量模仿标准库的行为，所以我们还是中止整个程序。</p>
 <p>好了，现在我们可以编写扩容的代码了。简单粗暴一点，我们需要这样的逻辑：</p>
-<pre><code class="language-Rust">if cap == 0:
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>if cap == 0:
     allocate()
     cap = 1
 else:
     reallocate()
     cap *= 2
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>但是Rust支持的分配器API过于底层了，我们不得不做一些其他的工作。我们还需要应对过大的或者空的内存分配等特殊的场景。</p>
 <p>特别是<code>ptr::offset</code>会给我们造成很多麻烦。因为它的语义是LLVM的GEP inbounds指令。如果你很幸运，以前没有处理过这个语义，这里就简单介绍一下GEP的作用：别名分析，别名分析，别名分析。推导数据依赖和别名对于一个成熟的编译器来说至关重要。</p>
 <p>一个简单的例子，看一下下面这段代码：</p>
-<pre><code class="language-Rust">*x *= 7;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>*x *= 7;
 *y *= 3;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>如果编译器可以证明<code>x</code>和<code>y</code>指向内存的不同区域，那么这两个操作理论上可以并行执行(比如，把它们加载到不同的寄存器并各自独立地处理)。但一般编译器不能这么做，因为如果x和y指向相同的区域，两个操作是在同一个值上做的，最后的结果不能合并到一起。</p>
 <p>如果你使用了GEP inbounds，你其实是在告诉LLVM你的offset操作是在一个分配实体里面做的。LLVM可以认为，当已知两个指针指向不同的对象时，他们所有的offset也都不是重名的（因为它们只能指向某个确定范围内的位置）。LLVM针对GEP offset做了很多的优化，而inbounds offset是效果最好的，所以我们也要尽可能地利用它。</p>
 <p>这就是GEP做的事情，那么它怎么会给我们制造麻烦呢？</p>
@@ -2630,7 +2946,10 @@ else:
 <p>如果是尺寸大于0的类型呢？这种情况就更复杂一些。原则上，你可以认为offset 0不会给LLVM提供任何的信息：地址的前面或后面可能存在一些元素，可不需要知道它们确切是什么。但是，我们还是谨慎一些，假设这么做有可能导致不好的情况。所以我们会显式地避免这种场景。</p>
 <p>终于要结束了。</p>
 <p>不要再说这些废话了，我们实际写一段内存分配的代码：</p>
-<pre><code class="language-Rust">use std::alloc::oom;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::alloc::oom;
 
 fn grow(&amp;mut self) {
     // 整段代码都很脆弱，所以我们把它整体设为unsafe
@@ -2671,7 +2990,8 @@ fn grow(&amp;mut self) {
         self.cap = new_cap;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>没有什么特别奇怪的操作。只是计算类型大小和对其，然后小心地做一些乘法检查。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-push-pop.html">https://doc.rust-lang.org/nomicon/vec-push-pop.html</a></p>
 <h1><a class="header" href="#push和pop" id="push和pop">Push和Pop</a></h1>
@@ -2679,7 +2999,10 @@ fn grow(&amp;mut self) {
 <p>写数据时，我们一定要小心，不要计算我们要写入的内存位置的值。最坏的情况，那块内存是一块未初始化的内存。最好的情况是那里存着我们已经pop出去的值。不管哪种情况，我们都不能直接索引这块内存然后解引用它，因为这样其实是把内存中的值当做了一个合法的T的实例。更糟糕的是，<code>foo[idx] = x</code>会调用<code>foo[idx]</code>处旧有值的<code>drop</code>方法！</p>
 <p>正确的方法是使用<code>ptr::write</code>，它直接用值的二进制覆盖目标地址，不会计算任何的值。</p>
 <p>对于<code>push</code>，如果原有的长度（调用push之前的长度）为0，那么我们就要写到第0个索引位置。所以我们应该用原有的长度做offset。</p>
-<pre><code class="language-Rust">pub fn push(&amp;mut self, elem: T) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn push(&amp;mut self, elem: T) {
     if self.len == self.cap { self.grow(); }
 
     unsafe {
@@ -2689,10 +3012,14 @@ fn grow(&amp;mut self) {
     // 这一句不会失败，而会首先OOM
     self.len += 1;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>小菜一碟！那么<code>pop</code>是什么样的呢？尽管现在我们要访问的索引位置已经初始化了，Rust不允许我们用解引用的方式将值移出，因为那样的话整个内存都会回到未初始化状态！这时我们需要用<code>ptr:read</code>，它从目标位置拷贝出二进制值，然后解析成类型T的值。这时原有位置处的内存逻辑上是未初始化的，可实际上那里还是存在这一个正常的T的实例。</p>
 <p>对于<code>pop</code>，如果原有长度是1，我们要读的是第0个索引位置。所以我们应该是按新的长度做offset。</p>
-<pre><code class="language-Rust">pub fn pop(&amp;mut self) -&gt; Option&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn pop(&amp;mut self) -&gt; Option&lt;T&gt; {
     if self.len == 0 {
         None
     } else {
@@ -2702,12 +3029,16 @@ fn grow(&amp;mut self) {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-dealloc.html">https://doc.rust-lang.org/nomicon/vec-dealloc.html</a></p>
 <h1><a class="header" href="#回收资源" id="回收资源">回收资源</a></h1>
 <p>接下来我们应该实现Drop，否则就要造成大量的资源泄露了。最简单的方法是循环调用<code>pop</code>直到产生None为止，然后再回收我们的缓存。注意，当<code>T: !Drop</code>的时候，调用<code>pop</code>不是必须的。理论上我们可以问一问Rust<code>T</code>是不是<code>need_drop</code>然后再省略一些<code>pop</code>调用。可实际上LLVM很擅长移除像这样的无副作用的代码，所以我们不需要再做多余的事，除非你发现LLVM不能成功移除（在这里它能）。</p>
 <p>在<code>self.cap == 0</code>的时候，我们一定不要调用<code>heap::deallocate</code>，因为这时我们还没有实际分配过任何内存。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Drop for Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Drop for Vec&lt;T&gt; {
     fn drop(&amp;mut self) {
         if self.cap != 0 {
             while let Some(_) = self.pop() { }
@@ -2721,12 +3052,16 @@ fn grow(&amp;mut self) {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-deref.html">https://doc.rust-lang.org/nomicon/vec-deref.html</a></p>
 <h1><a class="header" href="#deref" id="deref">DeRef</a></h1>
 <p>不错！我们实现了一个成熟的小的栈。我们可以push、可以pop、也可以自动清理。但是还是有一堆的功能是我们需要的。特别是，我们已经有了一个很好的数组，但是还没有slice相关的功能。这非常容易解决：我们可以实现<code>Deref&lt;Target=[T]&gt;</code>。这样我们的Vec就神奇地变成了slice。</p>
 <p>我们只需要使用<code>slice::from_raw_parts</code>。它能够为我们正确处理空slice。等到后面我们完成了零尺寸类型的支持，它们依然可以完美配合。</p>
-<pre><code class="language-Rust">use std::ops::Deref;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::ops::Deref;
 
 impl&lt;T&gt; Deref for Vec&lt;T&gt; {
     type Target = [T];
@@ -2736,9 +3071,13 @@ impl&lt;T&gt; Deref for Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>我们把DefMut也实现了吧：</p>
-<pre><code class="language-Rust">use std::ops::DerefMut;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::ops::DerefMut;
 
 impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
     fn deref_mut(&amp;mut self) -&gt; &amp;mut [T] {
@@ -2747,14 +3086,18 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>现在我们有了<code>len</code>、<code>first</code>、<code>last</code>、索引、分片、排序、<code>iter</code>、<code>iter_mut</code>，以及其他所有的slice提供的功能。完美！</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-insert-remove.html">https://doc.rust-lang.org/nomicon/vec-insert-remove.html</a></p>
 <h1><a class="header" href="#插入和删除" id="插入和删除">插入和删除</a></h1>
 <p>slice并没有提供插入和删除功能，接下来我们就实现它们。</p>
 <p>插入需要把目标位置后的所有元素都向右移动1。这里我们需要用到<code>ptr::copy</code>，它就是C中的<code>memmove</code>的Rust版。它把一块内存从一个地方拷贝到另一个地方，而且可以正确处理源和目标内存区域有重叠的情况（也正是我们这里遇到的情况）。</p>
 <p>如果我们在<code>i</code>的位置插入，我们需要把[i .. len]移动到[i+1 .. len+1]，len指的是插入前的值。</p>
-<pre><code class="language-Rust">pub fn insert(&amp;mut self, index: usize, elem: T) {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn insert(&amp;mut self, index: usize, elem: T) {
     // 注意：&lt;=是因为我们可以把值插到所有元素的后面
     // 这种情况等同于push
     assert!(index &lt;= self.len, &quot;index out of bounds&quot;);
@@ -2771,9 +3114,13 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         self.len += 1;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>删除则是完全相反的行为。我们要把元素[i+1 .. len + 1]移动到[i .. len]，len是删除后的值。</p>
-<pre><code class="language-Rust">pub fn remove(&amp;mut self, index: usize) -&gt; T {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn remove(&amp;mut self, index: usize) -&gt; T {
     // 注意：&lt;是因为我们不能删除所有元素之后的位置
     assert!(index &lt; self.len, &quot;index out of bounds&quot;);
     unsafe {
@@ -2785,7 +3132,8 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         result
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-into-iter.html">https://doc.rust-lang.org/nomicon/vec-into-iter.html</a></p>
 <h1><a class="header" href="#intoiter" id="intoiter">IntoIter</a></h1>
 <p>我们继续编写迭代器。<code>iter</code>和<code>iter_mut</code>其实已经写过了，感谢神奇的DeRef。但是还有两个有意思的迭代器是Vec提供的而slice没有的：<code>into_iter</code>和<code>drain</code>。</p>
@@ -2800,15 +3148,22 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
 <p>如果E直接指向它下一次要读的元素，我们就无法把上面的情况和所有元素都读过了的情况区分开了。</p>
 <p>我们还需要保存Vec的分配空间的信息，虽然在迭代过程中我们并不关心它，但我们在IntoIter被drop的时候需要这些信息来释放空间。</p>
 <p>所以我们要用下面这个结构体：</p>
-<pre><code class="language-Rust">struct IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct IntoIter&lt;T&gt; {
     buf: Unique&lt;T&gt;,
     cap: usize,
     start: *const T,
     end: *const T,
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是初始化的代码：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Vec&lt;T&gt; {
     fn into_iter(self) -&gt; IntoIter&lt;T&gt; {
         // 因为Vec是Drop，不能销毁它
         let ptr = self.ptr;
@@ -2833,9 +3188,13 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是前向迭代的代码：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Iterator for IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Iterator for IntoIter&lt;T&gt; {
     type Item = T;
     fn next(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
@@ -2855,9 +3214,13 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         (len, Some(len))
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是逆向迭代的代码：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; DoubleEndedIterator for IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; DoubleEndedIterator for IntoIter&lt;T&gt; {
     fn next_back(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
             None
@@ -2869,9 +3232,13 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>因为IntoIter获得了分配空间的所有权，它需要实现Drop来释放空间。同时Drop也要销毁所有它拥有但是没有读取到的元素。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Drop for IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Drop for IntoIter&lt;T&gt; {
     fn drop(&amp;mut self) {
         if self.cap != 0 {
             // drop剩下的元素
@@ -2886,12 +3253,16 @@ impl&lt;T&gt; DerefMut for Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-raw.html">https://doc.rust-lang.org/nomicon/vec-raw.html</a></p>
 <h1><a class="header" href="#rawvec" id="rawvec">RawVec</a></h1>
 <p>我们遇到了一个很有意思的情况：我们把初始化缓存和释放内存的逻辑在Vec和IntoIter里面一模一样地写了两次。现在我们已经实现了功能，而且发现了逻辑的重复，是时候对代码做一些压缩了。</p>
 <p>我们要抽象出<code>(ptr, cap)</code>，并赋予它们分配、扩容和释放的逻辑：</p>
-<pre><code class="language-Rust">struct RawVec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct RawVec&lt;T&gt; {
     ptr: Unique&lt;T&gt;,
     cap: usize,
 }
@@ -2942,9 +3313,13 @@ impl&lt;T&gt; Drop for RawVec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>然后像下面这样改写Vec：</p>
-<pre><code class="language-Rust">pub struct Vec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct Vec&lt;T&gt; {
     buf: RawVec&lt;T&gt;,
     len: usize,
 }
@@ -2970,9 +3345,13 @@ impl&lt;T&gt; Drop for Vec&lt;T&gt; {
         // 释放空间由RawVec负责
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>最后我们可以简化IntoIter：</p>
-<pre><code class="language-Rust">struct IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct IntoIter&lt;T&gt; {
     _buf: RawVec&lt;T&gt;, // 我们并不关心这个，只是需要它们保持分配空间不被销毁
     start: *const T,
     end: *const T,
@@ -3005,12 +3384,16 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>现在看起来好多了。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-drain.html">https://doc.rust-lang.org/nomicon/vec-drain.html</a></p>
 <h1><a class="header" href="#drain-1" id="drain-1">Drain</a></h1>
 <p>我们接着看看Drain。Drain和IntoIter基本相同，只不过它并不获取Vec的值，而是借用Vec并且不改变它的分配空间。现在我们只是先最“基本”的全范围(full-range)的版本。</p>
-<pre><code class="language-Rust">use std::marker::PhantomData;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker::PhantomData;
 
 struct Drain&lt;'a, T: 'a&gt; {
     // 这里需要限制生命周期。我们使用&amp;'a mut Vec&lt;T&gt;，因为这就是语义上我们包含的东西。
@@ -3025,9 +3408,13 @@ impl&lt;'a, T&gt; Iterator for Drain&lt;'a, T&gt; {
     fn next(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
             None
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>——等一下，这个看着有点眼熟。我们需要做进一步的压缩。IntoIter和Drain有着完全一样的结构，我们把它提取出来。</p>
-<pre><code class="language-Rust">struct RawValIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct RawValIter&lt;T&gt; {
     start: *const T,
     end: *const T,
 }
@@ -3049,9 +3436,13 @@ impl&lt;T&gt; RawValIter&lt;T&gt; {
 }
 
 // Iterator和DoubleEndedIterator的实现与IntoIter完全一样。
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>IntoIter变成了这样：</p>
-<pre><code class="language-Rust">pub struct IntoIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct IntoIter&lt;T&gt; {
     _buf: RawVec&lt;T&gt;, // 我们并不关心这个，只是需要它们保持分配空间不被销毁
     iter: RawValIter&lt;T&gt;,
 }
@@ -3087,10 +3478,14 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>注意，我在设计中留下了一些小后门，以便更简单地将Drain升级为可访问任意子范围的版本。特别是，我们可以在drop中让RawValIter遍历它自己。但是这种设计不适用于更复杂的Drain。我们还使用一个slice简化Drain的初始化。</p>
 <p>好了，现在Drain变得很简单：</p>
-<pre><code class="language-Rust">use std::marker::PhantomData;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::marker::PhantomData;
 
 pub struct Drain&lt;'a, T: 'a&gt; {
     vec: PhantomData&lt;&amp;'a mut Vec&lt;T&gt;&gt;,
@@ -3129,7 +3524,8 @@ impl&lt;T&gt; Vec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>关于更多的<code>mem::forget</code>的问题，请见<a href="https://doc.rust-lang.org/nomicon/leaking.html">关于泄露的章节</a>。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-zsts.html">https://doc.rust-lang.org/nomicon/vec-zsts.html</a></p>
 <h1><a class="header" href="#处理零尺寸类型" id="处理零尺寸类型">处理零尺寸类型</a></h1>
@@ -3143,7 +3539,10 @@ impl&lt;T&gt; Vec&lt;T&gt; {
 <p>如果分配器API不支持分配大小为0的空间，那么我们究竟储存了些什么呢？当然是<code>Unique::empty()</code>了！基本上所有关于ZST的操作都是no-op，因为ZST只有一个值，不需要储存或加载任何的状态。这也同样适用于<code>ptr::read</code>和<code>ptr::write</code>：它们根本不会看那个指针一眼。所以我们并不需要修改指针。</p>
 <p>注意，我们之前的分配代码依赖于OOM会先于数值溢出出现的假设，对于零尺寸类型不再有效了。我们必须显式地保证cap的值在ZST的情况下不会溢出。</p>
 <p>基于现在的架构，我们需要写3处保护代码，RawVec的三个方法每个都有一处。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; RawVec&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; RawVec&lt;T&gt; {
     fn new() -&gt; Self {
         // !0就是usize::MAX。这段分支代码在编译期就可以计算出结果。
         let cap = if mem::size_of::&lt;T&gt;() == 0 { !0 } else { 0 };
@@ -3198,11 +3597,15 @@ impl&lt;T&gt; Drop for RawVec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是这样。我们现在已经支持push和pop零尺寸类型了。但是迭代器（slice未提供的）还不能工作。</p>
 <h2><a class="header" href="#迭代零尺寸类型" id="迭代零尺寸类型">迭代零尺寸类型</a></h2>
 <p>offset 0是一个no-op。这意味着我们的<code>start</code>和<code>end</code>总是会被初始化为相同的值，我们的迭代器也无法产生任何的东西。当前的解决方案是把指针转换为整数，增加他们的值，然后再转换回来：</p>
-<pre><code class="language-Rust">impl&lt;T&gt; RawValIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; RawValIter&lt;T&gt; {
     unsafe fn new(slice: &amp;[T]) -&gt; Self {
         RawValIter {
             start: slice.as_ptr(),
@@ -3216,9 +3619,13 @@ impl&lt;T&gt; Drop for RawVec&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>现在我们有了一个新的bug。我们成功地让迭代器从完全不运行，变成了永远不停地运行。我们需要在迭代器的实现中玩同样的把戏。同时，<code>size_hint</code>在ZST的情况下会出现除数为0的问题。因为我们假设这两个指针都指向某个字节，我们在除数为0的情况下直接将除数变为1。</p>
-<pre><code class="language-Rust">impl&lt;T&gt; Iterator for RawValIter&lt;T&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;T&gt; Iterator for RawValIter&lt;T&gt; {
     type Item = T;
     fn next(&amp;mut self) -&gt; Option&lt;T&gt; {
         if self.start == self.end {
@@ -3260,11 +3667,12 @@ impl&lt;T&gt; DoubleEndedIterator for RawValIter&lt;T&gt; {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>很好，迭代器也可以工作了。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/vec-zsts.html">https://doc.rust-lang.org/nomicon/vec-zsts.html</a></p>
 <h1><a class="header" href="#最终代码" id="最终代码">最终代码</a></h1>
-<pre><code class="language-Rust">#![feature(ptr_internals)]
+<pre><pre class="playground"><code class="language-rust">#![feature(ptr_internals)]
 #![feature(allocator_api)]
 
 use std::ptr::{Unique, NonNull, self};
@@ -3566,80 +3974,80 @@ impl&lt;'a, T&gt; Drop for Drain&lt;'a, T&gt; {
     }
 }
 
-# fn main() {
-#     tests::create_push_pop();
-#     tests::iter_test();
-#     tests::test_drain();
-#     tests::test_zst();
-#     println!(&quot;All tests finished OK&quot;);
-# }
-
-# mod tests {
-#     use super::*;
-#     pub fn create_push_pop() {
-#         let mut v = Vec::new();
-#         v.push(1);
-#         assert_eq!(1, v.len());
-#         assert_eq!(1, v[0]);
-#         for i in v.iter_mut() {
-#             *i += 1;
-#         }
-#         v.insert(0, 5);
-#         let x = v.pop();
-#         assert_eq!(Some(2), x);
-#         assert_eq!(1, v.len());
-#         v.push(10);
-#         let x = v.remove(0);
-#         assert_eq!(5, x);
-#         assert_eq!(1, v.len());
-#     }
-# 
-#     pub fn iter_test() {
-#         let mut v = Vec::new();
-#         for i in 0..10 {
-#             v.push(Box::new(i))
-#         }
-#         let mut iter = v.into_iter();
-#         let first = iter.next().unwrap();
-#         let last = iter.next_back().unwrap();
-#         drop(iter);
-#         assert_eq!(0, *first);
-#         assert_eq!(9, *last);
-#     }
-# 
-#     pub fn test_drain() {
-#         let mut v = Vec::new();
-#         for i in 0..10 {
-#             v.push(Box::new(i))
-#         }
-#         {
-#             let mut drain = v.drain();
-#             let first = drain.next().unwrap();
-#             let last = drain.next_back().unwrap();
-#             assert_eq!(0, *first);
-#             assert_eq!(9, *last);
-#         }
-#         assert_eq!(0, v.len());
-#         v.push(Box::new(1));
-#         assert_eq!(1, *v.pop().unwrap());
-#     }
-# 
-#     pub fn test_zst() {
-#         let mut v = Vec::new();
-#         for _i in 0..10 {
-#             v.push(())
-#         }
-# 
-#         let mut count = 0;
-# 
-#         for _ in v.into_iter() {
-#             count += 1
-#         }
-# 
-#         assert_eq!(10, count);
-#     }
-# }
-</code></pre>
+<span class="boring">fn main() {
+</span><span class="boring">    tests::create_push_pop();
+</span><span class="boring">    tests::iter_test();
+</span><span class="boring">    tests::test_drain();
+</span><span class="boring">    tests::test_zst();
+</span><span class="boring">    println!(&quot;All tests finished OK&quot;);
+</span><span class="boring">}
+</span>
+<span class="boring">mod tests {
+</span><span class="boring">    use super::*;
+</span><span class="boring">    pub fn create_push_pop() {
+</span><span class="boring">        let mut v = Vec::new();
+</span><span class="boring">        v.push(1);
+</span><span class="boring">        assert_eq!(1, v.len());
+</span><span class="boring">        assert_eq!(1, v[0]);
+</span><span class="boring">        for i in v.iter_mut() {
+</span><span class="boring">            *i += 1;
+</span><span class="boring">        }
+</span><span class="boring">        v.insert(0, 5);
+</span><span class="boring">        let x = v.pop();
+</span><span class="boring">        assert_eq!(Some(2), x);
+</span><span class="boring">        assert_eq!(1, v.len());
+</span><span class="boring">        v.push(10);
+</span><span class="boring">        let x = v.remove(0);
+</span><span class="boring">        assert_eq!(5, x);
+</span><span class="boring">        assert_eq!(1, v.len());
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    pub fn iter_test() {
+</span><span class="boring">        let mut v = Vec::new();
+</span><span class="boring">        for i in 0..10 {
+</span><span class="boring">            v.push(Box::new(i))
+</span><span class="boring">        }
+</span><span class="boring">        let mut iter = v.into_iter();
+</span><span class="boring">        let first = iter.next().unwrap();
+</span><span class="boring">        let last = iter.next_back().unwrap();
+</span><span class="boring">        drop(iter);
+</span><span class="boring">        assert_eq!(0, *first);
+</span><span class="boring">        assert_eq!(9, *last);
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    pub fn test_drain() {
+</span><span class="boring">        let mut v = Vec::new();
+</span><span class="boring">        for i in 0..10 {
+</span><span class="boring">            v.push(Box::new(i))
+</span><span class="boring">        }
+</span><span class="boring">        {
+</span><span class="boring">            let mut drain = v.drain();
+</span><span class="boring">            let first = drain.next().unwrap();
+</span><span class="boring">            let last = drain.next_back().unwrap();
+</span><span class="boring">            assert_eq!(0, *first);
+</span><span class="boring">            assert_eq!(9, *last);
+</span><span class="boring">        }
+</span><span class="boring">        assert_eq!(0, v.len());
+</span><span class="boring">        v.push(Box::new(1));
+</span><span class="boring">        assert_eq!(1, *v.pop().unwrap());
+</span><span class="boring">    }
+</span><span class="boring">
+</span><span class="boring">    pub fn test_zst() {
+</span><span class="boring">        let mut v = Vec::new();
+</span><span class="boring">        for _i in 0..10 {
+</span><span class="boring">            v.push(())
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        let mut count = 0;
+</span><span class="boring">
+</span><span class="boring">        for _ in v.into_iter() {
+</span><span class="boring">            count += 1
+</span><span class="boring">        }
+</span><span class="boring">
+</span><span class="boring">        assert_eq!(10, count);
+</span><span class="boring">    }
+</span><span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/arc-and-mutex.html">https://doc.rust-lang.org/nomicon/arc-and-mutex.html</a></p>
 <h1><a class="header" href="#实现arc和mutex" id="实现arc和mutex">实现Arc和Mutex</a></h1>
 <p>知道理论很不错，但是理解一个东西最好的方法是使用它。为了更好地理解原子操作和内部可变性，我们要实现标准库的Arc和Mutex类型。</p>
@@ -3656,7 +4064,7 @@ libc = &quot;0.2.0&quot;
 <p>然后在你的crate的根文件插入一句<code>extern crate libc;</code></p>
 <h3><a class="header" href="#调用外部函数" id="调用外部函数">调用外部函数</a></h3>
 <p>下面是一个调用外部函数的小例子，安装了snappy才能编译成功。</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 use libc::size_t;
 
 #[link(name = &quot;snappy&quot;)]
@@ -3668,12 +4076,15 @@ fn main() {
     let x = unsafe { snappy_max_compressed_length(100) };
     println!(&quot;max compressed length of a 100 byte buffer: {}&quot;, x);
 }
-</code></pre>
+</code></pre></pre>
 <p><code>extern</code>代码块中是外部库的函数签名的列表，这个例子中使用的是平台相关的C的ABI。<code>#[link(...)]</code>属性用来构建一个链接snappy库的链接器，以便解析库中的符号(symbol)。</p>
 <p>外部函数都被认为是不安全的，所以对它们的调用必须包装在<code>unsafe {}</code>中，也就是向编译器承诺块中的代码都是安全的。C的库经常暴露非线程安全的接口，而且几乎所有的接受指针参数的函数都是不合法的，因为指针可能是悬垂指针，而裸指针不符合Rust的内存安全模型。</p>
 <p>在声明外部函数的参数类型时，Rust编译器不能检查声明的正确性，所以我们需要自己保证它是正确的，这也是运行期正确绑定的条件之一。</p>
 <p><code>extern</code>块还可以继续扩展，包含所有的snappy API：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>extern crate libc;
 use libc::{c_int, size_t};
 
 #[link(name = &quot;snappy&quot;)]
@@ -3693,20 +4104,28 @@ extern {
     fn snappy_validate_compressed_buffer(compressed: *const u8,
                                          compressed_length: size_t) -&gt; c_int;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#创建安全接口" id="创建安全接口">创建安全接口</a></h2>
 <p>原生的C API进行封装，以保证内存安全，还有使用vector等高级概念。库可以选择只暴露安全的、高级的接口，并隐藏非安全的内部细节。</p>
 <p>我们使用<code>slice::raw</code>模块封装接受内存块的函数，这个模块会把Rust的vector转换为内存的指针。Rust的vector是一块连续的内存。它的长度是当前包含的元素的数量，容量是分配内存可存储的元素的总数。长度是小于等于容量的。</p>
-<pre><code class="language-Rust">pub fn validate_compressed_buffer(src: &amp;[u8]) -&gt; bool {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn validate_compressed_buffer(src: &amp;[u8]) -&gt; bool {
     unsafe {
         snappy_validate_compressed_buffer(src.as_ptr(), src.len() as size_t) == 0
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>上方的<code>validate_compressed_buffer</code>包装器用到了<code>unsafe</code>代码块，但是函数签名里没有<code>unsafe</code>关键字，这说明它保证函数调用对所有的输入都是安全的。</p>
 <p><code>snappy_compress</code>和<code>snappy_uncompress</code>函数更复杂一些，因为它们需要分配一块空间储存输出的结果。</p>
 <p><code>snappy_max_compressed_length</code>函数可以用来分配一段最大容积内的vector，以保存输出的结果。这个vector可以传递给<code>snappy_compress</code>函数作为输出参数。还会传递一个输出参数获取压缩后的真实长度，以便设置返回值的长度。</p>
-<pre><code class="language-Rust">pub fn compress(src: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn compress(src: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
     unsafe {
         let srclen = src.len() as size_t;
         let psrc = src.as_ptr();
@@ -3720,9 +4139,13 @@ extern {
         dst
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>解压缩也是类似的，因为snappy的压缩格式中保存了未压缩时的大小，函数<code>snappy_uncompressed_length</code>可以获取需要的缓存区的尺寸。</p>
-<pre><code class="language-Rust">pub fn uncompress(src: &amp;[u8]) -&gt; Option&lt;Vec&lt;u8&gt;&gt; {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn uncompress(src: &amp;[u8]) -&gt; Option&lt;Vec&lt;u8&gt;&gt; {
     unsafe {
         let srclen = src.len() as size_t;
         let psrc = src.as_ptr();
@@ -3741,9 +4164,13 @@ extern {
         }
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>接下来，我们添加一些测试用例来展示如何使用它们。</p>
-<pre><code class="language-Rust">#[cfg(test)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -3772,7 +4199,8 @@ mod tests {
         assert!(uncompress(&amp;c) == Some(d));
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#析构函数-1" id="析构函数-1">析构函数</a></h2>
 <p>外部库经常把资源的所有权返还给调用代码。如果是这样，我们必须用Rust的析构函数保证所有的资源都被释放了（特别是在panic的情况下）。</p>
 <p>更多关于析构函数的内容，请见<a href="https://doc.rust-lang.org/std/ops/trait.Drop.html">Drop trait</a>。</p>
@@ -3781,7 +4209,7 @@ mod tests {
 <p>然后回调函数会通过注册调用传递给C的库，并在外部库中被触发。</p>
 <p>下面是一个简单的例子。</p>
 <p>Rust代码：</p>
-<pre><code class="language-Rust">extern fn callback(a: i32) {
+<pre><pre class="playground"><code class="language-rust">extern fn callback(a: i32) {
     println!(&quot;I'm called from C with value {0}&quot;, a);
 }
 
@@ -3797,7 +4225,7 @@ fn main() {
         trigger_callback(); // 触发回调
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>C代码：</p>
 <pre><code class="language-C">typedef void (*rust_callback)(int32_t);
 rust_callback cb;
@@ -3815,7 +4243,7 @@ void trigger_callback() {
 <h3><a class="header" href="#将rust对象作为回调" id="将rust对象作为回调">将Rust对象作为回调</a></h3>
 <p>之前的例子演示了C代码如何调用全局函数。但是很多情况下回调也可能是一个Rust对象，比如说封装了某个C的结构体的Rust对象。</p>
 <p>要实现这一点，我们可以传递一个指向这个对象的裸指针给C的库。C的库接下来可以将指针转换为Rust的对象。这样回调函数就可以非安全地访问相应的Rust对象了。</p>
-<pre><code class="language-Rust">#[repr(C)]
+<pre><pre class="playground"><code class="language-rust">#[repr(C)]
 struct RustObject {
     a: i32,
     // 其他成员……
@@ -3845,7 +4273,7 @@ fn main() {
         trigger_callback();
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>C代码：</p>
 <pre><code class="language-C">typedef void (*rust_callback)(void*, int32_t);
 void* cb_target;
@@ -3893,12 +4321,16 @@ void trigger_callback() {
 <h2><a class="header" href="#非安全代码块" id="非安全代码块">非安全代码块</a></h2>
 <p>有一些操作，比如解引用裸指针、或者调用被标为unsafe的函数，它们只能存在于非安全代码块中。非安全代码块隔离了非安全性，并向编译器承诺非安全性不会影响到块以外的代码。</p>
 <p>非安全函数则不同，它们声明非安全性一定会影响到函数之外。一个非安全函数写法如下：</p>
-<pre><code class="language-Rust">unsafe fn kaboom(ptr: *const i32) -&gt; i32 { *ptr }
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>unsafe fn kaboom(ptr: *const i32) -&gt; i32 { *ptr }
+<span class="boring">}
+</span></code></pre></pre>
 <p>这个函数只能在<code>unsafe</code>代码块或者另外一个<code>unsafe</code>函数里被调用。</p>
 <h2><a class="header" href="#访问外部全局变量" id="访问外部全局变量">访问外部全局变量</a></h2>
 <p>外部API经常暴露一些全局变量，用于记录全局状态等。为了访问这些变量，你需要在<code>extern</code>块中用<code>static</code>关键字声明它们：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 
 #[link(name = &quot;readline&quot;)]
 extern {
@@ -3909,9 +4341,9 @@ fn main() {
     println!(&quot;You have readline version {} installed.&quot;,
              unsafe { rl_readline_version as i32 });
 }
-</code></pre>
+</code></pre></pre>
 <p>有时也可能需要通过外部的接口修改全局状态。如果要这么做，静态变量还要添加<code>mut</code>，让我们可以修改它们。</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 
 use std::ffi::CString;
 use std::ptr;
@@ -3931,11 +4363,14 @@ fn main() {
         rl_prompt = ptr::null();
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>注意，所有和<code>static mut</code>的操作都是非安全的，不管是读还是写。处理全局可变状态的时候一定要格外的小心。</p>
 <h2><a class="header" href="#外部调用规范" id="外部调用规范">外部调用规范</a></h2>
 <p>大多数外部代码都暴露C的ABI，而Rust默认根据平台相关的C的调用规范调用外部函数。还有一些外部函数使用其他的规范，最典型的就是WindowsAPI。Rust也有方法告诉编译器使用哪种规范：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>extern crate libc;
 
 #[cfg(all(target_os = &quot;win32&quot;, target_arch = &quot;x86&quot;))]
 #[link(name = &quot;kernel32&quot;)]
@@ -3943,7 +4378,8 @@ fn main() {
 extern &quot;stdcall&quot; {
     fn SetEnvironmentVariableA(n: *const u8, v: *const u8) -&gt; libc::c_int;
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这段代码作用于整个<code>extern</code>代码块。支持的ABI包括：</p>
 <ul>
 <li><code>stdcall</code></li>
@@ -3966,7 +4402,7 @@ extern &quot;stdcall&quot; {
 <p>[crate.io的<code>libc</code> crate]<code>(https://crates.io/crates/libc)在</code>libc<code>模块中包含了C标准库的类型别名和函数定义，而Rust默认链接</code>libc<code>和</code>libm`。</p>
 <h2><a class="header" href="#可变函数" id="可变函数">可变函数</a></h2>
 <p>在C中，函数可以是“可变的”，也就是说可以接收可变数量的参数。在Rust中可以在外部函数声明的参数类表中插入<code>...</code>实现这一点：</p>
-<pre><code class="language-Rust">extern {
+<pre><pre class="playground"><code class="language-rust">extern {
     fn foo(x: i32, ...);
 }
 
@@ -3975,17 +4411,21 @@ fn main() {
         foo(10, 20, 30, 40, 50);
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>普通的Rust函数不能是可变的：</p>
-<pre><code class="language-Rust">// 这段不能通过编译
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// 这段不能通过编译
 fn foo(x: i32, ...) { }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <h2><a class="header" href="#空指针优化" id="空指针优化">空指针优化</a></h2>
 <p>一些Rust类型被定义为永不为<code>null</code>，包括引用（<code>&amp;T</code>、<code>&amp;mut T</code>）、<code>Box&lt;T&gt;</code>、以及函数指针（<code>extern &quot;abi&quot; fn()</code>）。可是在使用C的接口时，指针是经常可能为<code>null</code>的。看起来似乎需要用到<code>transmute</code>或者非安全代码来处理各种混乱的类型转换。但是，Rust其实提供了另外的方法。</p>
 <p>一些特殊情况中，<code>enum</code>很适合做空指针优化，只要它包含两个变量，其中一个不包含数据，而另外一个包含一个非空类型的成员。这样就不需要额外的空间做判断了：给那个包含非空成员的变量传递一个<code>null</code>，用它来表示另外那个空的变量。这种行为虽然被叫做“优化”，但是和其他的优化不同，它只适用于合适的类型。</p>
 <p>最常见的受益于空指针优化的类型是<code>Option&lt;T&gt;</code>，其中<code>None</code>可以用<code>null</code>表示。所以<code>Option&lt;extern &quot;C&quot; fn(c_int) - &gt; c_int&gt;</code>就很适合表示一个使用C ABI的可为空的函数指针（对应于C的<code>int (*)(int)</code>）。</p>
 <p>下面是一个刻意造出来的例子。假设一些C的库提供了注册回调的方法，然后在特定的条件下调用回调。回调接受一个函数指针和一个整数，然后用这个整数作为参数调用指针指向的函数。所以我们会向FFI边界的两侧都传递函数指针。</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">extern crate libc;
 use libc::c_int;
 
 extern &quot;C&quot; {
@@ -4008,7 +4448,7 @@ fn main() {
         register(Some(apply));
     }
 }
-</code></pre>
+</code></pre></pre>
 <p>C的代码是像这样的：</p>
 <pre><code class="language-C">void register(void (*f)(void (*)(int), int)) {
     ...
@@ -4017,15 +4457,19 @@ fn main() {
 <p>看，并不需要<code>transmute</code>！</p>
 <h2><a class="header" href="#c调用rust" id="c调用rust">C调用Rust</a></h2>
 <p>你可能想要用某种方式编译Rust，让C可以直接调用它。这件事很简单，只需要做少数的处理：</p>
-<pre><code class="language-Rust">#[no_mangle]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[no_mangle]
 pub extern fn hello_rust() -&gt; *const u8 {
     &quot;Hello, world!\0&quot;.as_ptr()
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p><code>extern</code>让它对应的函数符合C的调用规范，在上面的<a href="https://doc.rust-lang.org/nomicon/ffi.html#foreign-calling-conventions">外部调用规范</a>一节有详细讨论。<code>no_mangle</code>属性关闭Rust的name mangling，让它更方便被链接。</p>
 <h2><a class="header" href="#ffi和panic" id="ffi和panic">FFI和panic</a></h2>
 <p>使用FFI的时候要格外注意<code>panic!</code>。跨越FFI边界的<code>panic!</code>属于未定义行为。如果你写的代码可能会panic，你应该使用<code>catch_unwind</code>在一个闭包里执行它：</p>
-<pre><code class="language-Rust">use std::panic::catch_unwind;
+<pre><pre class="playground"><code class="language-rust">use std::panic::catch_unwind;
 
 #[no_mangle]
 pub extern fn oh_no() -&gt; i32 {
@@ -4039,7 +4483,7 @@ pub extern fn oh_no() -&gt; i32 {
 }
 
 fn main() {}
-</code></pre>
+</code></pre></pre>
 <p>请注意，<code>catch_unwind</code>只能捕获可展开的panic，不能捕获abort。更多的信息请参考<code>catch_unwind</code>的文档。</p>
 <h2><a class="header" href="#表示不透明结构体" id="表示不透明结构体">表示不透明结构体</a></h2>
 <p>有时候，C的库要提供一个指针指向某个东西，但又不想让你知道那个东西的内部细节。最简单的方式是使用<code>void *</code>：</p>
@@ -4047,13 +4491,17 @@ fn main() {}
 void bar(void *arg);
 </code></pre>
 <p>在Rust中我们可以用<code>c_void</code>类型表示它：</p>
-<pre><code class="language-Rust">extern crate libc;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>extern crate libc;
 
 extern &quot;C&quot; {
     pub fn foo(arg: *mut libc::c_void);
     pub fn bar(arg: *mut libc::c_void);
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是一个完全合法的方法。不过，我们其实还可以做得更好。要解决这个问题，一些C库可能会创建一个结构体，可结构体的细节和内存布局是私有的。这样提高了类型的安全性。这种结构体被称为”不透明“的。下面是一个C的例子：</p>
 <pre><code class="language-C">struct Foo; /* Foo是一个接口，但它的内容不属于公共接口 */
 struct Bar;
@@ -4061,15 +4509,15 @@ void foo(struct Foo *arg);
 void bar(struct Bar *arg);
 </code></pre>
 <p>在Rust中，我们可以使用枚举来创建我们自己的不透明类型：</p>
-<pre><code class="language-Rust">#[repr(C)] pub struct Foo { _private: [u8; 0] }
+<pre><pre class="playground"><code class="language-rust">#[repr(C)] pub struct Foo { _private: [u8; 0] }
 #[repr(C)] pub struct Bar { _private: [u8; 0] }
 
 extern &quot;C&quot; {
     pub fn foo(arg: *mut Foo);
     pub fn bar(arg: *mut Bar);
 }
-# fn main() {}
-</code></pre>
+<span class="boring">fn main() {}
+</span></code></pre></pre>
 <p>给结构体一个私有成员而不给它构造函数，这样我们就创建了一个不透明的类型，而且我们不能在模块之外实例化它。（没有成员的结构体可以在任何地方实例化）因为我们希望在FFI中使用这个类型，我们必须加上<code>#[repr(C)]</code>。还为了避免在FFI中使用<code>()</code>的时候出现警告，我们用了一个空数组。空数组和空类型的行为一致，同时它还是FFI兼容的。</p>
 <p>但因为<code>Foo</code>和<code>Bar</code>是不同的类型，我们需要保证两者之间的类型安全性，所以我们不能把<code>Foo</code>的指针传递给<code>bar()</code>。</p>
 <p>注意，用空枚举作为FFI类型是一个很不好的设计。编译器将空枚举视为不可达的空类型，所以使用<code>&amp;Empty</code>类型的值是很危险的，这可能导致很多程序中的问题（触发未定义行为）。</p>

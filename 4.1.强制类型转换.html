@@ -210,7 +210,7 @@
 <li>代码块中的最后一个表达式：<code>let x: U = { ..; e }</code></li>
 </ul>
 <p>注意，在匹配trait的时候不会发生强制类型转换（receiver除外，具体见下）。也就是说，如果为<code>U</code>实现了一个trait，<code>T</code>可以强制转换为<code>U</code>，并不能认为<code>T</code>也实现了这个trait。例如，下面的代码无法通过类型检查，虽然<code>t</code>可以强制转换为<code>&amp;T</code>，而且有一个<code>&amp;T</code>的trait实现。</p>
-<pre><code class="language-Rust">trait Trait {}
+<pre><pre class="playground"><code class="language-rust">trait Trait {}
 
 fn foo&lt;X: Trait&gt;(t: X) {}
 
@@ -220,7 +220,7 @@ fn main() {
     let t: &amp;mut i32 = &amp;mut 0;
     foo(t);
 }
-</code></pre>
+</code></pre></pre>
 <pre><code>&lt;anon&gt;:10:5: 10:8 error: the trait bound `&amp;mut i32 : Trait` is not satisfied [E0277]
 &lt;anon&gt;:10     foo(t);
               ^~~

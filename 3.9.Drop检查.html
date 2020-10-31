@@ -170,33 +170,45 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/dropck.html">https://doc.rust-lang.org/nomicon/dropck.html</a></p>
 <h1><a class="header" href="#drop检查" id="drop检查">Drop检查</a></h1>
 <p>我们已经知道生命周期给我们提供了一些很简单的规则，以保证我们永远不会读取悬垂引用。但是，到目前为止我们提到生命周期的长短时，指的都是非严格的关系。也就是说，当我们写<code>'a: 'b</code>的时候，<code>'a</code>其实也可以和<code>'b</code>一样长。乍一看，这一点没什么意义。本来也不会有两个东西被同时销毁的，不是吗？我们去掉下面的<code>let</code>表达式的语法糖看看：</p>
-<pre><code class="language-Rust">let x;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let x;
 let y;
-</code></pre>
-<pre><code class="language-Rust">{
+<span class="boring">}
+</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>{
     let x;
     {
         let y;
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>每一个都创建了自己的作用域，可以很清楚地看出来一个在另一个之前被销毁。但是，如果是下面这样的呢？</p>
-<pre><code class="language-Rust">let (x, y) = (vec![], vec![]);
-</code></pre>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let (x, y) = (vec![], vec![]);
+<span class="boring">}
+</span></code></pre></pre>
 <p>有哪一个比另一个存活更长吗？答案是，没有，没有哪个严格地比另一个长。当然，x和y中肯定有一个比另一个先销毁，但是销毁的顺序是不确定的。并非只有元组是这样，复合结构体从Rust 1.0开始就不会保证它们的销毁顺序。</p>
 <p>我们已经清楚了元组和结构体这种内置复合类型的行为了。那么Vec这样的类型又是什么样的呢？Vec必须通过标准库代码手动销毁它的元素。通常来说，所有实现了Drop的类型在临死前都有一次回光返照的机会。所以，对于实现了Drop的类型，编译器没有充分的理由判断它们的内容的实际销毁顺序。</p>
 <p>可是我们为什么要关心这个？因为如果系统不够小心，就可能搞出来悬垂指针。考虑下面这个简单的程序：</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
+<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
 
 fn main() {
     let (inspector, days);
     days = Box::new(1);
     inspector = Inspector(&amp;days);
 }
-</code></pre>
+</code></pre></pre>
 <p>这段程序是正确且可以正常编译的。<code>days</code>并不严格地比<code>inspector</code>存活得更长，但这没什么关系。只要<code>inspector</code>还存活着，<code>days</code>就一定也活着。</p>
 <p>可如果我们添加一个析构函数，程序就不能编译了！</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
+<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
 
 impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
@@ -211,7 +223,7 @@ fn main() {
     // 如果days碰巧先被销毁了
     // 那么当销毁Inspector的时候，它会读取被释放的内存
 }
-</code></pre>
+</code></pre></pre>
 <pre><code>error: `days` does not live long enough
   --&gt; &lt;anon&gt;:15:1
    |
@@ -231,7 +243,7 @@ error: aborting due to previous error
 <p>遵守这一规则（大部分情况下）是满足借用检查器要求的必要条件，同时是满足安全要求的充分非必要条件。也就是说，如果类型遵守上述规则，它就一定可以安全地drop。</p>
 <p>之所以并不总是满足借用检查器要求的必要条件，是因为有时类型借用了数据但是在Drop的实现里没有访问这些数据。</p>
 <p>例如，上面的<code>Inspector</code>的这一变体就不会访问借用的数据：</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
+<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
 
 impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
@@ -246,9 +258,9 @@ fn main() {
     // 假设days碰巧先被销毁。
     // 可当Inspector被销毁时，它的析构函数也不会访问借用的days。
 }
-</code></pre>
+</code></pre></pre>
 <p>同样，这个变体也不会访问借用的数据：</p>
-<pre><code class="language-Rust">use std::fmt;
+<pre><pre class="playground"><code class="language-rust">use std::fmt;
 
 struct Inspector&lt;T: fmt::Display&gt;(T, &amp;'static str);
 
@@ -265,7 +277,7 @@ fn main() {
     // 假设days碰巧先被销毁。
     // 可当Inspector被销毁时，它的析构函数也不会访问借用的days。
 }
-</code></pre>
+</code></pre></pre>
 <p>但是，借用检查器在分析<code>main</code>函数的时候会拒绝上面两段代码，并指出<code>days</code>存活得不够长。</p>
 <p>这是因为，当借用检查分析<code>main</code>函数的时候，它并不知道每个<code>Inspector</code>的<code>Drop</code>实现的内部细节。它只知道inspector的析构函数有访问借用数据的可能。</p>
 <p>因此，drop检查器强制要求一个值借用的所有数据的生命周期必须严格长于值本身。</p>
@@ -275,17 +287,24 @@ fn main() {
 <p>未来的版本中，分析过程会更加精细，以减少安全的代码被拒绝的情况。比如上面的两个<code>Inspector</code>，它们知道在销毁过程中不应该被检查。</p>
 <p>同时，有一个还未稳定的属性可以用来（非安全地）声明类型的析构函数保证不会访问过期的数据，即使类型的签名显示有这种可能存在。</p>
 <p>这个属性是<code>my_dangle</code>，在<a href="https://github.com/rust-lang/rfcs/blob/master/text/1327-dropck-param-eyepatch.md">RFC 1327</a>中被引入。我们可以这样将其放在上面的<code>Inspector</code>例子里：</p>
-<pre><code class="language-Rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
 
 unsafe impl&lt;#[may_dangle] 'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
         println!(&quot;Inspector(_, {}) knows when *not* to inspect.&quot;, self.1);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>使用这个属性要求<code>Drop</code>的实现被标为<code>unsafe</code>，因为编译器将不会检查有没有过期的数据（比如<code>self.0</code>）被访问。</p>
 <p>这个属性可以赋给任意数量的生命周期和类型参数。下面这个例子里，我们声明我们不会访问有生命周期<code>'b</code>的引用背后的数据，而类型<code>T</code>也只会被用来转移或销毁。但是我们没有为<code>'a</code>和<code>U</code>添加属性，因为我们确实会用到这个生命周期和类型：</p>
-<pre><code class="language-Rust">use std::fmt::Display;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::fmt::Display;
 
 struct Inspector&lt;'a, 'b, T, U: Display&gt;(&amp;'a u8, &amp;'b u8, T, U);
 
@@ -294,7 +313,8 @@ unsafe impl&lt;'a, #[may_dangle] 'b, #[may_dangle] T, U: Display&gt; Drop for In
         println!(&quot;Inspector({}, _, _, {})&quot;, self.0, self.3);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>上面的例子中，哪些数据不会被用到是一目了然的。但是，有时候这些泛型参数会被间接地访问。间接访问的形式包括：</p>
 <ul>
 <li>使用回调函数</li>
@@ -302,7 +322,10 @@ unsafe impl&lt;'a, #[may_dangle] 'b, #[may_dangle] T, U: Display&gt; Drop for In
 </ul>
 <p>（在日后的版本里可能增加其他间接访问的途径。）</p>
 <p>以下是使用回调的例子：</p>
-<pre><code class="language-Rust">struct Inspector&lt;T&gt;(T, &amp;'static str, Box&lt;for &lt;'r&gt; fn(&amp;'r T) -&gt; String&gt;);
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Inspector&lt;T&gt;(T, &amp;'static str, Box&lt;for &lt;'r&gt; fn(&amp;'r T) -&gt; String&gt;);
 
 impl&lt;T&gt; Drop for Inspector&lt;T&gt; {
     fn drop(&amp;mut self) {
@@ -311,9 +334,13 @@ impl&lt;T&gt; Drop for Inspector&lt;T&gt; {
                  (self.2)(&amp;self.0), self.1);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>这是trait方法调用的例子：</p>
-<pre><code class="language-Rust">use std::fmt;
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::fmt;
 
 struct Inspector&lt;T: fmt::Display&gt;(T, &amp;'static str);
 
@@ -325,7 +352,8 @@ impl&lt;T: fmt::Display&gt; Drop for Inspector&lt;T&gt; {
                  self.0, self.1);
     }
 }
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>当然，这些访问可以进一步地被隐藏在其他的析构函数调用的方法里，而不仅是直接写在函数中。</p>
 <p>上面的几个例子里，<code>&amp;'a u8</code>都在析构函数里被访问了。如果给它添加<code>#[may_dangle]</code>属性，这些类型很可能会产生借用检查器无法捕捉的错误，引发不可预料的灾难。所以最好能避免使用这个属性。</p>
 <h2><a class="header" href="#drop检查的故事讲完了吗" id="drop检查的故事讲完了吗">drop检查的故事讲完了吗？</a></h2>

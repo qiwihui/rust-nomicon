@@ -170,7 +170,10 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/constructors.html">https://doc.rust-lang.org/nomicon/constructors.html</a></p>
 <h1><a class="header" href="#构造函数" id="构造函数">构造函数</a></h1>
 <p>创建一个自定义类型的实例的方法只有一种：先命名，然后一次性初始化它的所有成员：</p>
-<pre><code class="language-Rust">struct Foo {
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Foo {
     a: u8,
     b:u32,
     c: bool,
@@ -186,7 +189,8 @@ struct Unit;
 let foo = Foo { a: 0, b: 1, c: false };
 let bar = Bar::X(0);
 let empty = Unit;
-</code></pre>
+<span class="boring">}
+</span></code></pre></pre>
 <p>就是这样。其他的所谓创建类型实例的方式，不过是调用一些函数，而函数的底层还是要依赖于这个真正的构造函数。</p>
 <p>和C++不同，Rust没有很多不同种类的构造函数，比如拷贝、默认、赋值、移动、还有其他各种构造函数。之所以这样的原因有很多，不过归根结底还是因为Rust显式化的设计哲学。</p>
 <p>移动构造函数对于Rust没什么用，因为我们并不需要让类型关心它们在内存上的位置。没一个类型都有可能随时被memcopy到内存中其他的位置上。这也意味和那种存储于栈上却依然可以移动的侵入式链表在Rust中是不可能（安全地）存在的。</p>
