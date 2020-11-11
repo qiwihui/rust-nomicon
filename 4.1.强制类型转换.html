@@ -188,7 +188,7 @@
 <p>所有的指针类型（包括Box和Rc这些智能指针）都实现了<code>CoerceUnsized&lt;Pointer&lt;U&gt;&gt; for Pointer&lt;T&gt; where T: Unsize&lt;U&gt;</code>。Unsize只能被自动实现，并且实现如下转换方式：</p>
 <ul>
 <li><code>[T; n]</code> =&gt; <code>[T]</code></li>
-<li><code>T</code> =&gt; <code>Trait</code>，其中<code>T: Trait</code></li>
+<li><code>T</code> =&gt; <code>dyn Trait</code>，其中<code>T: Trait</code></li>
 <li><code>Foo&lt;..., T, ...&gt;</code> =&gt; Foo&lt;..., U, ...&gt;`，其中
 <ul>
 <li><code>T: Unsize&lt;U&gt;</code></li>
@@ -210,7 +210,7 @@
 <li>代码块中的最后一个表达式：<code>let x: U = { ..; e }</code></li>
 </ul>
 <p>注意，在匹配trait的时候不会发生强制类型转换（receiver除外，具体见下）。也就是说，如果为<code>U</code>实现了一个trait，<code>T</code>可以强制转换为<code>U</code>，并不能认为<code>T</code>也实现了这个trait。例如，下面的代码无法通过类型检查，虽然<code>t</code>可以强制转换为<code>&amp;T</code>，而且有一个<code>&amp;T</code>的trait实现。</p>
-<pre><pre class="playground"><code class="language-rust">trait Trait {}
+<pre><pre class="playground"><code class="language-rust compile_fail">trait Trait {}
 
 fn foo&lt;X: Trait&gt;(t: X) {}
 
@@ -221,9 +221,21 @@ fn main() {
     foo(t);
 }
 </code></pre></pre>
-<pre><code>&lt;anon&gt;:10:5: 10:8 error: the trait bound `&amp;mut i32 : Trait` is not satisfied [E0277]
-&lt;anon&gt;:10     foo(t);
-              ^~~
+<pre><code class="language-text">error[E0277]: the trait bound `&amp;mut i32: Trait` is not satisfied
+ --&gt; src/main.rs:9:5
+  |
+9 |     foo(t);
+  |     ^^^ the trait `Trait` is not implemented for `&amp;mut i32`
+  |
+  = help: the following implementations were found:
+            &lt;&amp;'a i32 as Trait&gt;
+note: required by `foo`
+ --&gt; src/main.rs:3:1
+  |
+3 | fn foo&lt;X: Trait&gt;(t: X) {}
+  | ^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to previous error
 </code></pre>
 
                     </main>

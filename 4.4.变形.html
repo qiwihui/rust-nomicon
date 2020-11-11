@@ -170,23 +170,32 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/transmutes.html#transmutes">https://doc.rust-lang.org/nomicon/transmutes.html#transmutes</a></p>
 <h1><a class="header" href="#变形transmutes" id="变形transmutes">变形(Transmutes)</a></h1>
 <p>类型系统你给我滚开！我要自己解析这些字节，不成功便成仁！虽然本书都是关于非安全的内容，我还是希望你能仔细考虑避免使用本章讲到的内容。这是你在Rust中所能做到的真真正正、彻彻底底、最最可怕的非安全行为。所有的保护机制都形同虚设。</p>
-<p><code>mem::transmute&lt;T, U&gt;</code>接受一个<code>T</code>类型的值，然后将它重新解析为类型<code>U</code>。唯一的限制是<code>T</code>和<code>U</code>必须有同样的大小。可能产生未定义行为的情况让人看着头疼。</p>
+<p><a href="https://doc.rust-lang.org/std/mem/fn.transmute.html"><code>mem::transmute&lt;T, U&gt;</code></a> 接受一个<code>T</code>类型的值，然后将它重新解析为类型<code>U</code>。唯一的限制是<code>T</code>和<code>U</code>必须有同样的大小。可能产生未定义行为的情况让人看着头疼。</p>
 <ul>
-<li>最重要的，创建任一类型的处于不合法状态的示例，都将产生不可预知的混乱</li>
-<li>transmute有一个重载的返回类型。如果没有明确指定返回类型，它会返回一个满足类型推断的奇怪类型</li>
-<li>使用不合法的值构建基本类型是未定义行为</li>
-<li>非repr(C)的类型之间相互变形是未定义行为</li>
-<li><code>&amp;</code>变形为<code>&amp;mut</code>是未定义行为
+<li>
+<p>最重要的，创建任一类型的处于不合法状态的示例，都将产生不可预知的混乱。不要将<code>3</code>转换为<code>bool</code>，即使你从不对布尔进行任何<em>操作</em>，不要转换；</p>
+</li>
+<li>
+<p>transmute有一个重载的返回类型。如果没有明确指定返回类型，它会返回一个满足类型推断的奇怪类型；</p>
+</li>
+<li>
+<p><code>&amp;</code>变形为<code>&amp;mut</code>是未定义行为；</p>
 <ul>
-<li><code>&amp;</code>变形为<code>&amp;mut</code><strong>永远</strong>都是未定义行为</li>
-<li>不要多想，你绝对不能这么做</li>
-<li>不要多想，你没有什么特殊的</li>
+<li><code>&amp;</code>变形为<code>&amp;mut</code><strong>永远</strong>都是未定义行为；</li>
+<li>不要多想，你绝对不能这么做；</li>
+<li>不要多想，你没有什么特殊的；</li>
 </ul>
 </li>
-<li>变形为一个未指定生命周期的引用会产生<a href="https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html">无界生命周期</a></li>
+<li>
+<p>变形为一个未指定生命周期的引用会产生<a href="3.6.%E6%97%A0%E7%95%8C%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F.html">无界生命周期</a>；</p>
+</li>
+<li>
+<p>在不同组合类型之间转换时，必须确保它们以相同的方式布置！如果布局不同，则错误的字段将被错误的数据填充，这将使你不满意，并且可能会成为未定义行为（请参见上文）。</p>
+<p>那么你如何知道布局是否相同？ 对于<code>repr(C)</code>类型和<code>repr(transparent)</code>类型，布局是精确定义的。但是对于常规<code>repr(Rust)</code>，事实并非如此。甚至同一泛型类型的不同实例也可能具有截然不同的布局。<code>Vec&lt;i32&gt;</code>和<code>Vec &lt;u32&gt;</code> <em>可能</em>的字段顺序相同，也可能不相同。确切和不保证数据布局的细节仍然在<a href="https://rust-lang.github.io/unsafe-code-guidelines/layout.html">在UCG WG</a>研究。</p>
+</li>
 </ul>
-<p><code>mem::transmute_copy&lt;T, U&gt;</code>很神奇地比这更加不安全。它从<code>&amp;T</code>拷贝<code>size_of&lt;U&gt;</code>个字节并将它们解析为<code>U</code>。<code>mem::transmute</code>仅有的类型大小的检查都不见了（因为拷贝类型前缀有可能是合法的），只不过<code>U</code>的尺寸比<code>T</code>大会被视为一个未定义行为。</p>
-<p>当然，本章大部分的功能都可以通过指针的显式转换实现。</p>
+<p><a href="https://doc.rust-lang.org/std/mem/fn.transmute_copy.html"><code>mem::transmute_copy&lt;T, U&gt;</code></a> 很神奇地比这<em>更加</em>不安全。它从<code>&amp;T</code>拷贝<code>size_of&lt;U&gt;</code>个字节并将它们解析为<code>U</code>。<code>mem::transmute</code>仅有的类型大小的检查都不见了（因为拷贝类型前缀有可能是合法的），只不过<code>U</code>的尺寸比<code>T</code>大会被视为一个未定义行为。</p>
+<p>当然，你也可以使用原始指针强制转换或<code>union</code>来获得这些函数的所有功能，而无需任何语法或其他基本的健全性检查。原始指针强制转换和<code>union</code>不能避免上述规则。</p>
 
                     </main>
 

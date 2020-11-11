@@ -2016,7 +2016,7 @@ fn reinterpret(foo: Foo) -&gt; Bar {
 <p>所有的指针类型（包括Box和Rc这些智能指针）都实现了<code>CoerceUnsized&lt;Pointer&lt;U&gt;&gt; for Pointer&lt;T&gt; where T: Unsize&lt;U&gt;</code>。Unsize只能被自动实现，并且实现如下转换方式：</p>
 <ul>
 <li><code>[T; n]</code> =&gt; <code>[T]</code></li>
-<li><code>T</code> =&gt; <code>Trait</code>，其中<code>T: Trait</code></li>
+<li><code>T</code> =&gt; <code>dyn Trait</code>，其中<code>T: Trait</code></li>
 <li><code>Foo&lt;..., T, ...&gt;</code> =&gt; Foo&lt;..., U, ...&gt;`，其中
 <ul>
 <li><code>T: Unsize&lt;U&gt;</code></li>
@@ -2038,7 +2038,7 @@ fn reinterpret(foo: Foo) -&gt; Bar {
 <li>代码块中的最后一个表达式：<code>let x: U = { ..; e }</code></li>
 </ul>
 <p>注意，在匹配trait的时候不会发生强制类型转换（receiver除外，具体见下）。也就是说，如果为<code>U</code>实现了一个trait，<code>T</code>可以强制转换为<code>U</code>，并不能认为<code>T</code>也实现了这个trait。例如，下面的代码无法通过类型检查，虽然<code>t</code>可以强制转换为<code>&amp;T</code>，而且有一个<code>&amp;T</code>的trait实现。</p>
-<pre><pre class="playground"><code class="language-rust">trait Trait {}
+<pre><pre class="playground"><code class="language-rust compile_fail">trait Trait {}
 
 fn foo&lt;X: Trait&gt;(t: X) {}
 
@@ -2049,9 +2049,21 @@ fn main() {
     foo(t);
 }
 </code></pre></pre>
-<pre><code>&lt;anon&gt;:10:5: 10:8 error: the trait bound `&amp;mut i32 : Trait` is not satisfied [E0277]
-&lt;anon&gt;:10     foo(t);
-              ^~~
+<pre><code class="language-text">error[E0277]: the trait bound `&amp;mut i32: Trait` is not satisfied
+ --&gt; src/main.rs:9:5
+  |
+9 |     foo(t);
+  |     ^^^ the trait `Trait` is not implemented for `&amp;mut i32`
+  |
+  = help: the following implementations were found:
+            &lt;&amp;'a i32 as Trait&gt;
+note: required by `foo`
+ --&gt; src/main.rs:3:1
+  |
+3 | fn foo&lt;X: Trait&gt;(t: X) {}
+  | ^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to previous error
 </code></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/dot-operator.html">https://doc.rust-lang.org/nomicon/dot-operator.html</a></p>
 <h1><a class="header" href="#点操作符" id="点操作符">点操作符</a></h1>
@@ -2089,9 +2101,11 @@ fn main() {
 <li>如果源类型是有符号的，将会有符号补零</li>
 </ul>
 </li>
-<li>浮点类型转换为整型会舍去浮点部分
+<li>浮点类型转换为整型会舍去浮点部分，并且当浮点数超出整数范围时会产生“饱和转换”
 <ul>
-<li><a href="https://github.com/rust-lang/rust/issues/10184">注意：如果目标整数类型不能表示舍入的结果，在目前这是一个未定义行为</a>。包括Inf和NaN。这是一个bug，会在后续版本中修复。</li>
+<li>太大的浮点数会变成可能的最大整数</li>
+<li>太小的浮点数会产生可能的最小整数</li>
+<li>NaN 产生零</li>
 </ul>
 </li>
 <li>整型转换为浮点类型会产生这个整型的浮点型表示，</li>
@@ -2101,23 +2115,32 @@ fn main() {
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/transmutes.html#transmutes">https://doc.rust-lang.org/nomicon/transmutes.html#transmutes</a></p>
 <h1><a class="header" href="#变形transmutes" id="变形transmutes">变形(Transmutes)</a></h1>
 <p>类型系统你给我滚开！我要自己解析这些字节，不成功便成仁！虽然本书都是关于非安全的内容，我还是希望你能仔细考虑避免使用本章讲到的内容。这是你在Rust中所能做到的真真正正、彻彻底底、最最可怕的非安全行为。所有的保护机制都形同虚设。</p>
-<p><code>mem::transmute&lt;T, U&gt;</code>接受一个<code>T</code>类型的值，然后将它重新解析为类型<code>U</code>。唯一的限制是<code>T</code>和<code>U</code>必须有同样的大小。可能产生未定义行为的情况让人看着头疼。</p>
+<p><a href="https://doc.rust-lang.org/std/mem/fn.transmute.html"><code>mem::transmute&lt;T, U&gt;</code></a> 接受一个<code>T</code>类型的值，然后将它重新解析为类型<code>U</code>。唯一的限制是<code>T</code>和<code>U</code>必须有同样的大小。可能产生未定义行为的情况让人看着头疼。</p>
 <ul>
-<li>最重要的，创建任一类型的处于不合法状态的示例，都将产生不可预知的混乱</li>
-<li>transmute有一个重载的返回类型。如果没有明确指定返回类型，它会返回一个满足类型推断的奇怪类型</li>
-<li>使用不合法的值构建基本类型是未定义行为</li>
-<li>非repr(C)的类型之间相互变形是未定义行为</li>
-<li><code>&amp;</code>变形为<code>&amp;mut</code>是未定义行为
+<li>
+<p>最重要的，创建任一类型的处于不合法状态的示例，都将产生不可预知的混乱。不要将<code>3</code>转换为<code>bool</code>，即使你从不对布尔进行任何<em>操作</em>，不要转换；</p>
+</li>
+<li>
+<p>transmute有一个重载的返回类型。如果没有明确指定返回类型，它会返回一个满足类型推断的奇怪类型；</p>
+</li>
+<li>
+<p><code>&amp;</code>变形为<code>&amp;mut</code>是未定义行为；</p>
 <ul>
-<li><code>&amp;</code>变形为<code>&amp;mut</code><strong>永远</strong>都是未定义行为</li>
-<li>不要多想，你绝对不能这么做</li>
-<li>不要多想，你没有什么特殊的</li>
+<li><code>&amp;</code>变形为<code>&amp;mut</code><strong>永远</strong>都是未定义行为；</li>
+<li>不要多想，你绝对不能这么做；</li>
+<li>不要多想，你没有什么特殊的；</li>
 </ul>
 </li>
-<li>变形为一个未指定生命周期的引用会产生<a href="https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html">无界生命周期</a></li>
+<li>
+<p>变形为一个未指定生命周期的引用会产生<a href="3.6.%E6%97%A0%E7%95%8C%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F.html">无界生命周期</a>；</p>
+</li>
+<li>
+<p>在不同组合类型之间转换时，必须确保它们以相同的方式布置！如果布局不同，则错误的字段将被错误的数据填充，这将使你不满意，并且可能会成为未定义行为（请参见上文）。</p>
+<p>那么你如何知道布局是否相同？ 对于<code>repr(C)</code>类型和<code>repr(transparent)</code>类型，布局是精确定义的。但是对于常规<code>repr(Rust)</code>，事实并非如此。甚至同一泛型类型的不同实例也可能具有截然不同的布局。<code>Vec&lt;i32&gt;</code>和<code>Vec &lt;u32&gt;</code> <em>可能</em>的字段顺序相同，也可能不相同。确切和不保证数据布局的细节仍然在<a href="https://rust-lang.github.io/unsafe-code-guidelines/layout.html">在UCG WG</a>研究。</p>
+</li>
 </ul>
-<p><code>mem::transmute_copy&lt;T, U&gt;</code>很神奇地比这更加不安全。它从<code>&amp;T</code>拷贝<code>size_of&lt;U&gt;</code>个字节并将它们解析为<code>U</code>。<code>mem::transmute</code>仅有的类型大小的检查都不见了（因为拷贝类型前缀有可能是合法的），只不过<code>U</code>的尺寸比<code>T</code>大会被视为一个未定义行为。</p>
-<p>当然，本章大部分的功能都可以通过指针的显式转换实现。</p>
+<p><a href="https://doc.rust-lang.org/std/mem/fn.transmute_copy.html"><code>mem::transmute_copy&lt;T, U&gt;</code></a> 很神奇地比这<em>更加</em>不安全。它从<code>&amp;T</code>拷贝<code>size_of&lt;U&gt;</code>个字节并将它们解析为<code>U</code>。<code>mem::transmute</code>仅有的类型大小的检查都不见了（因为拷贝类型前缀有可能是合法的），只不过<code>U</code>的尺寸比<code>T</code>大会被视为一个未定义行为。</p>
+<p>当然，你也可以使用原始指针强制转换或<code>union</code>来获得这些函数的所有功能，而无需任何语法或其他基本的健全性检查。原始指针强制转换和<code>union</code>不能避免上述规则。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/uninitialized.html">https://doc.rust-lang.org/nomicon/uninitialized.html</a></p>
 <h1><a class="header" href="#未初始化内存" id="未初始化内存">未初始化内存</a></h1>
 <p>所有运行期分配的内存开始时都是&quot;未初始化&quot;状态。这种状态下内存的值是一组不确定的字节，甚至有可能不是使用这块内存的类型的合法值。将这段内存的值解析为任何类型都是未定义行为。千万不要这么做。</p>
