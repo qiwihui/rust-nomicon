@@ -169,8 +169,8 @@
                     <main>
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetime-elision.html">https://doc.rust-lang.org/nomicon/lifetime-elision.html</a></p>
 <h1><a class="header" href="#省略生命周期" id="省略生命周期">省略生命周期</a></h1>
-<p>为了让语言的表达方式更人性化，Rust允许函数的签名中省略生命周期。</p>
-<p>“生命周期位置”指的是你在类型中可以写生命周期的地方。</p>
+<p>为了让语言的表达方式更人性化，Rust允许函数的签名中<em>省略</em>生命周期。</p>
+<p>“<em>生命周期位置</em>”指的是你在类型中可以写生命周期的地方。</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -187,8 +187,8 @@ T&lt;'a&gt;
 <p>省略的规则如下：</p>
 <ul>
 <li>每一个在输入位置省略的生命周期都对应一个唯一的生命周期参数。</li>
-<li>如果只有一个输入的生命周期位置（无论省略还是没省略），那个生命周期会赋给所有省略了的输出生命周期。</li>
-<li>如果有多个输入生命周期位置，而其中一个是<code>&amp;self</code>或者<code>&amp;mut self</code>，那么<code>self</code>的生命周期会赋给所有省略了的输出生命周期。</li>
+<li>如果只有一个输入的生命周期位置（无论省略还是没省略），那个生命周期会赋给<em>所有</em>省略了的输出生命周期。</li>
+<li>如果有多个输入生命周期位置，而其中一个是<code>&amp;self</code>或者<code>&amp;mut self</code>，那么<code>self</code>的生命周期会赋给<em>所有</em>省略了的输出生命周期。</li>
 <li>除了上述两种情况，其他省略生命周期的情况都是错误的。</li>
 </ul>
 <p>几个例子：</p>

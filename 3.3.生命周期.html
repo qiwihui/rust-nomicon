@@ -169,10 +169,12 @@
                     <main>
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetimes.html">https://doc.rust-lang.org/nomicon/lifetimes.html</a></p>
 <h1><a class="header" href="#生命周期" id="生命周期">生命周期</a></h1>
-<p>Rust在整个生命周期里强制执行生命周期的规则。生命周期说白了就是作用域的名字。每一个引用以及包含引用的数据结构，都要有一个生命周期来指定它保持有效的作用域。</p>
+<p>Rust在整个生命周期里强制执行<em>生命周期</em>的规则。</p>
+<p>生命周期是引用必须有效的命名代码区域。这些区域可能相当复杂，因为它们对应于程序中的执行路径。在这些执行路径上甚至可能存在漏洞，因为只要在重新使用引用之前对其进行了初始化，就有可能使引用无效。包含引用（或假装为引用）的类型也可以用生命周期进行标记，以便 Rust 可以防止它们变无效。</p>
+<p>在我们的大多数示例中，生命周期将与作用域一致。这是因为我们的示例很简单。它们不一致的更为复杂的情况如下所述。</p>
 <p>在函数体内，Rust通常不需要你显式地给生命周期起名字。这是因为在本地上下文里，一般没有必要关注生命周期。Rust知道程序的全部信息，从而可以完美地执行各种操作。它可能会引入许多匿名或者临时的作用域让程序顺利执行。</p>
 <p>但是如果你要跨出函数的边界，就需要关心生命周期了。生命周期用这样的符号表示：<code>'a</code>,<code>'static</code>。为了更清晰地了解生命周期，我们假设我们可以为生命周期打标签，去掉本章所有例子的语法糖。</p>
-<p>最开始，我们的示例代码对作用域和生命周期使用了很激进的语法糖特性——甜得像玉米糖浆一样，因为把所有的东西都显式地写出来实在很讨厌。所有的Rust代码都采用比较激进的理论以省略“显而易见”的东西。</p>
+<p>最开始，我们的示例代码对作用域和生命周期使用了<em>很激进</em>的语法糖特性——甜得像玉米糖浆一样，因为把所有的东西都显式地写出来实在<em>很讨厌</em>。所有的Rust代码都采用比较激进的理论以省略“显而易见”的东西。</p>
 <p>一个特别有意思的语法糖是，每一个<code>let</code>表达式都隐式引入了一个作用域。大多数情况下，这一点并不重要。但是当变量之间互相引用的时候，这就很重要了。举个简单的例子，我们彻底去掉下面这段代码的语法糖：</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
@@ -229,7 +231,7 @@ z = y;
 </span></code></pre></pre>
 <h2><a class="header" href="#示例引用超出被引用内容生命周期" id="示例引用超出被引用内容生命周期">示例：引用超出被引用内容生命周期</a></h2>
 <p>好了，让我们再看一遍曾经举过的一个例子：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>fn as_str(data: &amp;u32) -&gt; &amp;str {
@@ -250,8 +252,8 @@ z = y;
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>函数<code>as_str</code>的签名里接受了一个带有生命周期的u32类型的引用，并且保证会返回一个生命周期一样长的str类型的引用。从这个签名我们就已经可以看出问题了。它表示我们必须到那个u32引用的作用域，或者比它还要早的作用域里去找一个str。这就有点不合理了。</p>
-<p>接下来我们生成一个字符串<code>s</code>，然后返回它的引用。我们的函数要求这个引用的有效期不能小于<code>'a</code>，那是我们给引用指定的生命周期。不幸的是，<code>s</code>是在作用域'b里面定义的。除非'b包含'a这个函数才可能是正确的——而这显然不可能，因为'a必须包含它所调用的函数。这样我们创建了一个生命周期超出被引用内容的引用，这明显违背了之前提到的引用的第一条规则。编译器十分感动然后拒绝了我们。</p>
+<p>函数<code>as_str</code>的签名里接受了一个带有<em>一些</em>生命周期的u32类型的引用，并且保证会返回一个生命周期<em>一样长</em>的str类型的引用。从这个签名我们就已经可以看出问题了。它表示我们必须到那个u32引用的作用域，或者比它<em>还要早</em>的作用域里去找一个str。这就有点不合理了。</p>
+<p>接下来我们生成一个字符串<code>s</code>，然后返回它的引用。我们的函数要求这个引用的有效期不能小于<code>'a</code>，那是我们给引用指定的生命周期。不幸的是，<code>s</code>是在作用域<code>'b</code>里面定义的。除非<code>'b</code>包含<code>'a</code>这个函数才可能是正确的——而这显然不可能，因为<code>'a</code>必须包含它所调用的函数。这样我们创建了一个生命周期超出被引用内容的引用，这<em>明显</em>违背了之前提到的引用的第一条规则。编译器十分感动然后拒绝了我们。</p>
 <p>我们扩展一下这个例子，一边看得更清楚：</p>
 <pre><pre class="playground"><code class="language-rust">fn as_str&lt;'a&gt;(data: &amp;'a u32) -&gt; &amp;'a str {
     'b: {
@@ -283,10 +285,10 @@ fn main() {
 <span class="boring">}
 </span></code></pre></pre>
 <p>我们必须创建一个值然后连同它的所有权一起返回。除非一个字符串是<code>&amp;'a u32</code>的成员，我们才能返回<code>&amp;'a str</code>，显然事情并不是这样的。</p>
-<p>（其实我们也可以返回一个字符串的字面量，它是一个全局的变量，可以认为是处于栈的底部。尽管这样极大限制了函数的使用场合。）</p>
+<p>（其实我们也可以返回一个字符串的字面量，它是一个全局的变量，可以认为是处于栈的底部。尽管这样<em>有些</em>限制了我们的实现。）</p>
 <h2><a class="header" href="#示例存在可变引用的别名" id="示例存在可变引用的别名">示例：存在可变引用的别名</a></h2>
 <p>在看另一个老的例子：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut data = vec![1, 2,3];
@@ -313,9 +315,73 @@ println!(&quot;{}&quot;, x);
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>这里的问题更加微妙也更有趣。我们希望Rust出于如下的原因拒绝编译这段代码：我们有一个有效的指向<code>data</code>的内部数据的引用<code>x</code>，而同时又创建了一个<code>data</code>的可变引用用于执行<code>push</code>。也就是说出现了可变引用的别名，这违背了引用的第二条规则。</p>
-<p>但是Rust其实并非因为这个原因判断这段代码有问题。Rust不知道<code>x</code>是<code>data</code>的子内容的引用，它其实完全不知道Vec的内部是什么样子的。它只知道<code>x</code>必须在<code>'b</code>范围内有效，这样才能打印其中的内容。函数<code>Index::index</code>的签名因此要求传递的<code>data</code>的引用也必须在<code>'b</code>的范围内有效。当我们调用<code>push</code>的时候，Rust发现我们要创建一个<code>&amp;'c mut data</code>。它知道<code>'c</code>是包含在<code>'b</code>以内的，因为<code>&amp;'b data</code>还存活着，所以它拒绝了这段程序。</p>
-<p>我们看到了生命周期系统要比引用的保护措施更加简单粗暴。大多数情况下这也没什么，它让我们不用没完没了地向编译器解释我们的程序。但是这也意味着许多语义上正确的程序会被编译器拒绝，因为生命周期的规则太死板了。</p>
+<p>这里的问题更加微妙也更有趣。我们希望Rust出于如下的原因拒绝编译这段代码：我们有一个有效的指向<code>data</code>的内部数据的引用<code>x</code>，而同时又创建了一个<code>data</code>的可变引用用于执行<code>push</code>。也就是说出现了可变引用的别名，这违背了引用的<em>第二条</em>规则。</p>
+<p>但是Rust其实<em>并非</em>因为这个原因判断这段代码有问题。Rust不知道<code>x</code>是<code>data</code>的子内容的引用，它其实完全不知道<code>Vec</code>的内部是什么样子的。它<em>只</em>知道<code>x</code>必须在<code>'b</code>范围内有效，这样才能打印其中的内容。函数<code>Index::index</code>的签名因此要求传递的<code>data</code>的引用也必须在<code>'b</code>的范围内有效。当我们调用<code>push</code>的时候，Rust发现我们要创建一个<code>&amp;'c mut data</code>。它知道<code>'c</code>是包含在<code>'b</code>以内的，因为<code>&amp;'b data</code>还存活着，所以它拒绝了这段程序。</p>
+<p>我们看到了生命周期系统要比引用的保护措施更加简单粗暴。大多数情况下这也没什么，它让我们不用没完没了地向编译器解释我们的程序。但是这也意味着许多语义上<em>正确的</em>程序会被编译器拒绝，因为生命周期的规则太死板了。</p>
+<h2><a class="header" href="#生命周期所覆盖的区域" id="生命周期所覆盖的区域">生命周期所覆盖的区域</a></h2>
+<p>从创建之处到最后一次使用，生命周期（有时称为<em>借用</em>）是<em>有效的</em>。借来的东西只需要借用存活就可以。这看起来很简单，但几乎没有什么微妙之处。</p>
+<p>以下代码段将可以编译，因为在打印<code>x</code>之后不再需要它了，所以它是悬垂的还是别名的都没关系（即使变量<code>x</code><em>技术上</em>存在到作用域的最后）。</p>
+<pre><pre class="playground"><code class="language-rust edition2018">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = vec![1, 2, 3];
+let x = &amp;data[0];
+println!(&quot;{}&quot;, x);
+// 此处可行，x 不再需要。
+data.push(4);
+<span class="boring">}
+</span></code></pre></pre>
+<p>但是，如果该值具有析构函数，则该析构函数将在作用域的末尾运行。运行析构函数被认为是一种使用──显然是最后一次。因此，这将<em>不能</em>编译。</p>
+<pre><pre class="playground"><code class="language-rust edition2018 compile_fail">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug)]
+struct X&lt;'a&gt;(&amp;'a i32);
+
+impl Drop for X&lt;'_&gt; {
+    fn drop(&amp;mut self) {}
+}
+
+let mut data = vec![1, 2, 3];
+let x = X(&amp;data[0]);
+println!(&quot;{:?}&quot;, x);
+data.push(4);
+// 在这里，析构函数已运行，因此将无法编译。
+<span class="boring">}
+</span></code></pre></pre>
+<p>一种使编译器确信<code>x</code>不再有效的方法是在<code>data.push(4)</code>之前使用 <code>drop(x)</code>。</p>
+<p>此外，借用可能有多种可能的最后使用，例如在条件的每个分支中。</p>
+<pre><pre class="playground"><code class="language-rust edition2018">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span><span class="boring">fn some_condition() -&gt; bool { true }
+</span>let mut data = vec![1, 2, 3];
+let x = &amp;data[0];
+
+if some_condition() {
+    println!(&quot;{}&quot;, x); // 这是该分支中`x`的最后使用
+    data.push(4);      // 所以这里可行
+} else {
+    // 这里没有使用`x`，因此有效的最后一个使用是在示例顶部创建x时。
+    data.push(5);
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>生命周期可能会有停顿。或者，你可能会认为它是两个不同的借用刚好与同一个局部变量绑定在一起。这通常在循环时发生（在循环结束时写入变量的新值，并在下一次迭代的顶部最后一次使用该变量）。</p>
+<pre><pre class="playground"><code class="language-rust edition2018">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = vec![1, 2, 3];
+// 此 mut 允许我们更改应用的指向
+let mut x = &amp;data[0];
+
+println!(&quot;{}&quot;, x); // 借用的最后一次使用
+data.push(4);
+x = &amp;data[3]; // 我们在这里开始新的借用
+println!(&quot;{}&quot;, x);
+<span class="boring">}
+</span></code></pre></pre>
+<p>从历史上看，Rust 一直保持借用直到作用域结束，因此这些示例可能无法使用较旧的编译器进行编译。另外，在某些极端情况下，Rust 无法正确缩短借用的有效部分，即使看起来像样也无法编译。这些将随着时间的推移而解决。</p>
 
                     </main>
 

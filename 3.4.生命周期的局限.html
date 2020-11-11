@@ -170,7 +170,8 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetime-mismatch.html">https://doc.rust-lang.org/nomicon/lifetime-mismatch.html</a></p>
 <h1><a class="header" href="#生命周期的局限" id="生命周期的局限">生命周期的局限</a></h1>
 <p>考虑下面的代码：</p>
-<pre><pre class="playground"><code class="language-rust">struct Foo;
+<pre><pre class="playground"><code class="language-rust edition2018 compile_fail">#[derive(Debug)]
+struct Foo;
 
 impl Foo {
     fn mutate_and_share(&amp;mut self) -&gt; &amp;Self {&amp;*self}
@@ -181,26 +182,22 @@ fn main() {
     let mut foo = Foo;
     let loan = foo.mutate_and_share();
     foo.share();
+    println!(&quot;{:?}&quot;, loan);
 }
 </code></pre></pre>
 <p>你可能觉得它能成功编译。我们调用<code>mutate_and_share</code>，临时可变地借用<code>foo</code>，但接下来返回一个共享引用。因为调用<code>foo.share()</code>时没有可变的引用了，所以我们认为可以正常调用。</p>
 <p>但是当我们尝试编译它：</p>
-<pre><code>&lt;anon&gt;:11:5: 11:8 error: cannot borrow `foo` as immutable because it is also borrowed as mutable
-&lt;anon&gt;:11     foo.share();
-              ^~~
-&lt;anon&gt;:10:16: 10:19 note: previous borrow of `foo` occurs here; the mutable borrow prevents subsequent moves, borrows, or modification of `foo` until the borrow ends
-&lt;anon&gt;:10     let loan = foo.mutate_and_share();
-                         ^~~
-&lt;anon&gt;:12:2: 12:2 note: previous borrow ends here
-&lt;anon&gt;:8 fn main() {
-&lt;anon&gt;:9     let mut foo = Foo;
-&lt;anon&gt;:10     let loan = foo.mutate_and_share();
-&lt;anon&gt;:11     foo.share();
-&lt;anon&gt;:12 }
-          ^
+<pre><code class="language-text">error[E0502]: cannot borrow `foo` as immutable because it is also borrowed as mutable
+  --&gt; src/main.rs:12:5
+   |
+11 |     let loan = foo.mutate_and_share();
+   |                --- mutable borrow occurs here
+12 |     foo.share();
+   |     ^^^ immutable borrow occurs here
+13 |     println!(&quot;{:?}&quot;, loan);
 </code></pre>
-<p>发生了什么呢？嗯……我们遇到了和<a href="https://doc.rust-lang.org/nomicon/lifetimes.html#example-aliasing-a-mutable-reference">上一章的示例2</a>相同的错误。我们去掉语法糖，会得到这样的代码:</p>
-<pre><pre class="playground"><code class="language-rust">struct Foo;
+<p>发生了什么呢？嗯……我们遇到了和<a href="3.3.%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F.html#%E7%A4%BA%E4%BE%8B%E5%AD%98%E5%9C%A8%E5%8F%AF%E5%8F%98%E5%BC%95%E7%94%A8%E7%9A%84%E5%88%AB%E5%90%8D">上一章的示例2</a>相同的错误。我们去掉语法糖，会得到这样的代码:</p>
+<pre><code class="language-rust ignore">struct Foo;
 
 impl Foo {
     fn mutate_and_share&lt;'a&gt;(&amp;'a mut self) -&gt; &amp;'a Self { &amp;'a *self }
@@ -215,13 +212,35 @@ fn main() {
             'd: {
                 Foo::share::&lt;'d&gt;(&amp;'d foo);
             }
+            println!(&quot;{:?}&quot;, loan);
         }
     }
 }
-</code></pre></pre>
+</code></pre>
 <p>生命周期系统强行把<code>&amp;mut foo</code>的生命周期扩展到'c，以和<code>loan</code>的生命周期以及<code>mutate_and_share</code>的签名匹配。接下来我们调用<code>share</code>，Rust认为我们在给<code>&amp;'c mut foo</code>创建别名，于是拒绝了我们。</p>
 <p>这段程序显然完全符合引用的语义，但是我们的生命周期系统过于粗糙，无法对它进行正确的分析。</p>
-<p>接下来，还有什么普遍的问题吗？关于SEME区域的，大概吧？</p>
+<h2><a class="header" href="#借用减少不当" id="借用减少不当">借用减少不当</a></h2>
+<p>以下当前无法编译，因为Rust不了解不再需要借用，因此保守地退回到使用整个作用域。这最终将得到解决。</p>
+<pre><pre class="playground"><code class="language-rust edition2018 compile_fail">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span><span class="boring">use std::collections::HashMap;
+</span><span class="boring">use std::hash::Hash;
+</span>fn get_default&lt;'m, K, V&gt;(map: &amp;'m mut HashMap&lt;K, V&gt;, key: K) -&gt; &amp;'m mut V
+where
+    K: Clone + Eq + Hash,
+    V: Default,
+{
+    match map.get_mut(&amp;key) {
+        Some(value) =&gt; value,
+        None =&gt; {
+            map.insert(key.clone(), V::default());
+            map.get_mut(&amp;key).unwrap()
+        }
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
 
                     </main>
 

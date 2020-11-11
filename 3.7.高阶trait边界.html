@@ -191,7 +191,7 @@ fn main() {
 }
 </code></pre></pre>
 <p>如果我们像在生命周期那一章里一样地去掉这段代码的语法糖，我们会发现一些问题：</p>
-<pre><pre class="playground"><code class="language-rust">struct Closure&lt;F&gt; {
+<pre><code class="language-rust ignore">struct Closure&lt;F&gt; {
     data: (u8, u16),
     func: F,
 }
@@ -212,17 +212,13 @@ fn main() {
         println!(&quot;{}&quot;, clo.call());
     }
 }
-</code></pre></pre>
-<p>我们究竟应该怎么表示<code>F</code>的trait边界里的生命周期呢？这里需要一个生命周期，但是在我们进入<code>call</code>函数之前我们都不知道生命周期的名字！而且，那里的生命周期也是不固定的，<code>&amp;self</code>在那一时间点上是什么生命周期，<code>call</code>就也要是什么生命周期。</p>
+</code></pre>
+<p>我们究竟应该怎么表示<code>F</code>的trait边界里的生命周期呢？这里需要一个生命周期，但是在我们进入<code>call</code>函数之前我们都不知道生命周期的名字！而且，那里的生命周期也是不固定的，<code>call</code> 可以和有<em>任何</em>生命周期的 <code>&amp;self</code> 一起使用。</p>
 <p>这里我们需要借助高阶trait边界（HRTB, Higher-Rank Trait Bounds）的神奇力量了。我们去掉语法糖之后的代码应该是这样的：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>where for&lt;'a&gt; F: Fn(&amp;'a (u8, u16)) -&gt; &amp;'a u8,
-<span class="boring">}
-</span></code></pre></pre>
-<p>（其中<code>Fn(a, b, c） -&gt; d</code>本身就是不确定的<code>Fn</code> trait的语法糖）</p>
-<p><code>for&lt;'a&gt;</code>可以读作“对于<code>'a</code>的所有可能选择”，基本上表示一个无限的列表，包含所有<code>F</code>需要满足的trait边界。不过别紧张，除了<code>Fn</code> trait之外我们很少会遇到需要HRTB的场景，而且即使遇到了我们还有一个神奇的语法糖相助。</p>
+<pre><code class="language-rust ignore">where for&lt;'a&gt; F: Fn(&amp;'a (u8, u16)) -&gt; &amp;'a u8,
+</code></pre>
+<p>（其中<code>Fn(a, b, c） -&gt; d</code>本身就是不文档的<em>真实的</em> <code>Fn</code> trait的语法糖）</p>
+<p><code>for&lt;'a&gt;</code>可以读作“对于<code>'a</code>的所有可能选择”，基本上表示一个<em>无限的列表</em>，包含所有<code>F</code>需要满足的trait边界。不过别紧张，除了<code>Fn</code> trait之外我们很少会遇到需要HRTB的场景，而且即使遇到了我们还有一个神奇的语法糖相助。</p>
 
                     </main>
 

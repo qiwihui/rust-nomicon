@@ -190,7 +190,7 @@ println!(&quot;{} {} {} {}&quot;, a, b, c, c2);
 <span class="boring">}
 </span></code></pre></pre>
 <p>但是，借用检查器对于数组和slice的理解却是一团浆糊，所以这段代码无法通过检查：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut x = [1, 2, 3];
@@ -199,37 +199,42 @@ let b = &amp;mut x[1];
 println!(&quot;{} {}&quot;, a, b);
 <span class="boring">}
 </span></code></pre></pre>
-<pre><code>&lt;anon&gt;:4:14: 4:18 error: cannot borrow `x[..]` as mutable more than once at a time
-&lt;anon&gt;:4 let b = &amp;mut x[1];
-                      ^~~~
-&lt;anon&gt;:3:14: 3:18 note: previous borrow of `x[..]` occurs here; the mutable borrow prevents subsequent moves, borrows, or modification of `x[..]` until the borrow ends
-&lt;anon&gt;:3 let a = &amp;mut x[0];
-                      ^~~~
-&lt;anon&gt;:6:2: 6:2 note: previous borrow ends here
-&lt;anon&gt;:1 fn main() {
-&lt;anon&gt;:2 let mut x = [1, 2, 3];
-&lt;anon&gt;:3 let a = &amp;mut x[0];
-&lt;anon&gt;:4 let b = &amp;mut x[1];
-&lt;anon&gt;:5 println!(&quot;{} {}&quot;, a, b);
-&lt;anon&gt;:6 }
-         ^
-error: aborting due to 2 previous errors
+<pre><code class="language-text">error[E0499]: cannot borrow `x[..]` as mutable more than once at a time
+ --&gt; src/lib.rs:4:18
+  |
+3 |     let a = &amp;mut x[0];
+  |                  ---- first mutable borrow occurs here
+4 |     let b = &amp;mut x[1];
+  |                  ^^^^ second mutable borrow occurs here
+5 |     println!(&quot;{} {}&quot;, a, b);
+6 | }
+  | - first borrow ends here
+
+error: aborting due to previous error
 </code></pre>
-<p>借用检查器连这个简单的场景都理解不了，那它更不可能理解一些通用容器类型了，比如说树，尤其是出现不同的键对应相同的值的时候。</p>
+<p>借用检查器连这个简单的场景都理解不了，那它更不可能理解一些通用容器类型了，比如说树，尤其是出现不同的键<em>确实</em>对应相同的值的时候。</p>
 <p>为了能“教育”借用检查器我们的所作所为是正确的，我们还是要使用非安全代码。比如，可变slice暴露了一个<code>split_at_mut</code>的方法，它接收一个slice然后返回两个可变slice。一个包括索引值左边所有的值，另一个包含右边所有的值。我们知道这个方法是安全的，因为两个slice没有重叠部分，也就不会出现别名问题。但是它的实现还是要涉及到非安全的内容：</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
+</span><span class="boring">use std::slice::from_raw_parts_mut;
+</span><span class="boring">struct FakeSlice&lt;T&gt;(T);
+</span><span class="boring">impl&lt;T&gt; FakeSlice&lt;T&gt; {
+</span><span class="boring">fn len(&amp;self) -&gt; usize { unimplemented!() }
+</span><span class="boring">fn as_mut_ptr(&amp;mut self) -&gt; *mut T { unimplemented!() }
+</span>pub fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
     let len = self.len();
     let ptr = self.as_mut_ptr();
-    assert!(mid &lt;= len);
+
     unsafe {
-        (from_raw_parts_mut(ptr, mid)),
-         from_raw_parts_mut(ptr.offset(mid as isize), len - mid))
+        assert!(mid &lt;= len);
+
+        (from_raw_parts_mut(ptr, mid),
+         from_raw_parts_mut(ptr.add(mid), len - mid))
     }
 }
 <span class="boring">}
+</span><span class="boring">}
 </span></code></pre></pre>
 <p>这有一点难懂。为了避免两个<code>&amp;mut</code>指向相同的值，我们通过裸指针显式创建了两个全新的slice。</p>
 <p>不过迭代器产生可变引用的方法更加难懂。迭代器trait的定义如下：</p>
@@ -243,9 +248,9 @@ error: aborting due to 2 previous errors
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>这份定义里，<code>Self::Item</code>与<code>slef</code>没有直接关系。也就是说我们可以连续调用<code>next</code>很多次，并且同时保存着所有的结果。对于值的迭代器这么做完全可以，完全符合语义。对于共享引用这么做也没什么问题，因为允许任意过个共享引用指向同一个值（当然迭代器本身需要是独立于被共享内容的对象）。</p>
+<p>这份定义里，<code>Self::Item</code>与<code>slef</code><em>没有</em>直接关系。也就是说我们可以连续调用<code>next</code>很多次，并且<em>同时</em>保存着所有的结果。对于值的迭代器这么做完全可以，完全符合语义。对于共享引用这么做也没什么问题，因为允许任意过个共享引用指向同一个值（当然迭代器本身需要是独立于被共享内容的对象）。</p>
 <p>但是可变引用就麻烦了。乍一看，可变引用完全不适用这个API，因为那会产生多个指向相同对象的可变引用。</p>
-<p>可实际上它能够正常工作，这是因为迭代器是一个一次性对象。<code>IterMut</code>生成的东西最多只会生成一次，所以实际上我们没有生成多个指向相同数据的可变指针。</p>
+<p>可实际上它<em>能够</em>正常工作，这是因为迭代器是一个一次性对象。<code>IterMut</code>生成的东西最多只会生成一次，所以实际上我们没有生成多个指向相同数据的可变指针。</p>
 <p>更不可思议的是，可变迭代器对于许多类型的实现甚至不需要非安全代码！</p>
 <p>例如，下面是单向列表的代码：</p>
 <pre><pre class="playground"><code class="language-rust">

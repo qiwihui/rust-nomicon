@@ -170,130 +170,219 @@
                         <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/subtyping.html">https://doc.rust-lang.org/nomicon/subtyping.html</a></p>
 <h1><a class="header" href="#子类型和变性" id="子类型和变性">子类型和变性</a></h1>
 <p>子类型是类型之间的一种关系，可以让静态类型语言更加地灵活自由。</p>
-<p>理解这一概念最简单的方法就是参考一些支持继承特性的语言。比如说一个Animal类型有一个<code>eat()</code>方法，Cat类型继承了Animal并且添加了一个<code>meow()</code>方法。如果没有子类型机制，那么要写一个<code>feed(Animal)</code>函数，我们就不能给它传递Cat类型的参数，因为Cat并不是一个Animal。但是把Cat传递给需要Animal类型的地方似乎非常的合理。毕竟，Cat就是一个Animal外加一些自己的特性。这些特性完全可以被忽略，不应该妨碍我们在这里使用它！</p>
-<p>这就是子类型机制允许我们做的事情。因为Cat是一个Animal外加一些特性，我们就可以说Cat是Animal的子类型。任何需要某种类型的地方，我们都可以传递一个那种类型的子类型。很好!虽然实际情况会稍微复杂和微妙一点，但这种基本的理解足够你应对99%的应用场景了。我们在本章的后面会说明剩下的1%是什么。</p>
-<p>尽管Rust没有结构体继承的概念，它却有子类型机制。在Rust中，子类型是针对生命周期存在的。生命周期是代码的作用域，所以我们可以根据它们相互包含的关系判断他们的继承关系。</p>
-<p>生命周期的子类型指的是：如果<code>'big: 'small</code>（big包含small，或者big比small长寿），那么<code>'big</code>就是<code>'small</code>的子类型。这一点很容易弄错，因为它和我们的直觉是相反的：大的范围是小的范围的子类型。不过如果你对比一下我们举的Animal的例子就清楚了：Cat是一个Animal外加一些独有的东西，而<code>'big</code>是<code>'small</code>外加一些独有的东西。</p>
-<p>换一个角度想，如果需要一个在<code>'small</code>内有效的引用，实际指的是至少在<code>'small</code>中有效的引用。我们并不在乎生命周期是不是完全的一致。从这点上来说，永久生命周期<code>'static</code>是所有生命周期的子类型。</p>
-<p>高阶生命周期也是所有具体生命周期的子类型。这是因为一个随意变化的生命周期比特定的一个生命周期更通用。</p>
-<p>(将生命周期类型化是一个过于自由的设计，以至于一些人并不赞同它。但是，把生命周期看做一种类型，这确实简化了我们的分析。)</p>
-<p>当然你不能写一个接收<code>'a</code>类型的值的函数！生命周期只是别的类型的一部分，所以我们需要一些办法来处理它。这里，就要涉及到变性。</p>
-<h2><a class="header" href="#变性" id="变性">变性</a></h2>
-<p>变性显得有一点复杂。</p>
-<p>变性是类型构造函数与它的参数相关的一个属性。Rust中的类型构造函数是一个带有无界参数的通用类型。比如，<code>Vec</code>是一个构造函数，它的参数是<code>T</code>，返回值是<code>vec&lt;T&gt;</code>。<code>&amp;</code>和<code>&amp;mut</code>也是构造函数，它们有两个类型：一个生命周期，和一个引用指向的类型。</p>
-<p>构造函数F的变性表示了它的输入的子类型如何影响它输出的子类型。Rust中有三种变性：</p>
-<ul>
-<li>如果当<code>T</code>是<code>U</code>的子类型时，<code>F&lt;T&gt;</code>也是<code>F&lt;U&gt;</code>的子类型，则F对于<code>T</code>是<em>协变</em>的</li>
-<li>如果当<code>T</code>是<code>U</code>的子类型时，<code>F&lt;U&gt;</code>是<code>F&lt;T&gt;</code>的子类型，则F对于<code>T</code>是<em>逆变</em>的</li>
-<li>其他情况（即子类型之间没有关系），则F对于<code>T</code>是<em>不变</em>的</li>
-</ul>
-<p>注意，在Rust中协变性远比逆变性要普遍和重要。逆变性的存在几乎可以忽略。</p>
-<p>一些重要的变性（下文会详细描述）：</p>
-<ul>
-<li><code>&amp;'a T</code>对于<code>'a</code>和<code>T</code>是协变的</li>
-<li><code>&amp;'a mut T</code>对于<code>'a</code>是协变的，对于<code>T</code>是不变的</li>
-<li><code>fn(T) -&gt; U</code>对于<code>T</code>是逆变的，对于<code>U</code>是协变的</li>
-<li><code>Box</code>，<code>Vec</code>以及所有的集合类对于它们保存的类型都是协变的</li>
-<li><code>UnsafeCell&lt;T&gt;</code>，<code>Cell&lt;T&gt;</code>,<code>RefCell&lt;T&gt;</code>,<code>Mutex&lt;T&gt;</code>和其他的内部可变类型对于<code>T</code>都是不变的</li>
-</ul>
-<p>我们举几个例子说明这些变性为什么是正确且必要的。</p>
-<p>在介绍子类型的时候，其实已经包括了为什么<code>&amp;'a T</code>对<code>'a</code>是协变的。当需要一个较短的生命周期时，我们需要能够传递一个更长的生命周期。</p>
-<p>类似的理由也可以解释为什么它对于<code>T</code>是协变的：给一个要求<code>&amp;&amp;'a str</code>的地方传递<code>&amp;&amp;'static T</code>是很合理的。这种间接的引用并不影响对生命周期长度的要求。</p>
-<p>但是同样的逻辑并不适用于<code>&amp;mut</code>。下面的代码演示了为什么<code>&amp;mut</code>对于T是不变的：</p>
-<pre><pre class="playground"><code class="language-rust">fn overwrite&lt;T: Copy&gt;(intput: &amp;mut T, new: &amp;mut T) {
-    *input = *new;
+<p>Rust中的子类型与其他语言中的子类型有些不同。这使得很难给出简单的例子，这是一个问题，因为子类型，尤其是变性，已经很难正确理解。在这种情况下，即使是编译器编写者也经常将其弄乱。</p>
+<p>为了使事情简单，本节将考虑对Rust语言的一个小扩展，它添加了新的更简单的子类型关系。在这个更简单的系统下建立了概念和问题之后，我们将把它与Rust中子类型的实际发生方式联系起来。</p>
+<p>因此，这是我们的简单扩展，<em>Objective Rust</em>，具有三种新类型：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait Animal {
+    fn snuggle(&amp;self);
+    fn eat(&amp;mut self);
+}
+
+trait Cat: Animal {
+    fn meow(&amp;self);
+}
+
+trait Dog: Animal {
+    fn bark(&amp;self);
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>但是，与普通trait不同，我们可以像结构一样将它们用作具体的有大小的类型。</p>
+<p>现在，假设我们有一个非常简单的函数，该函数采用动物，如下所示：</p>
+<pre><code class="language-rust ignore">fn love(pet: Animal) {
+    pet.snuggle();
+}
+</code></pre>
+<p>默认情况下，静态类型必须<em>完全</em>匹配才能编译程序。 因此，此代码将无法编译：</p>
+<pre><code class="language-rust ignore">let mr_snuggles: Cat = ...;
+love(mr_snuggles);         // ERROR: expected Animal, found Cat
+</code></pre>
+<p>mr_snuggles 是 Cat，而猫 Cat 不是<em>确切</em>动物，所以我们不能爱它！😿</p>
+<p>这很烦人，因为猫<em>是</em>动物。它们支持动物支持的每项操作，因此从直觉上来说，<code>love</code> 应该不在乎我们是否将其传递给 <code>Cat</code>。我们应该能够<strong>忘记</strong> <code>Cat</code> 的非动物部分，因为它们不需要。</p>
+<p>这正是<em>子类型</em>旨在解决的问题。因为猫是动物，<strong>甚至更多</strong>，所以我们说猫是动物的<em>子类型</em>（因为猫是所有动物的<em>子集</em>）。等效地，我们说动物是猫的<em>超类型</em>。使用子类型，我们可以通过一个简单的规则来调整我们过于严格的静态类型系统：在任何期望为 <code>T</code> 的值的地方，我们也将接受 <code>T</code> 子类型的值。</p>
+<p>或更具体地讲：只要是动物可行，猫或狗也是可行的。</p>
+<p>正如我们将在本节的其余部分中看到的那样，子类型化比这要复杂得多和微妙得多，但是这个简单的规则是非常好的直觉。并且，除非你编写不安全的代码，否则编译器将自动为你处理所有极端情况。</p>
+<p>但这是Rustonomicon，我们正在编写不安全的代码，因此我们需要了解这些东西是如何工作的，以及如何使用它。</p>
+<p>核心问题是，天真地应用此规则将导致<em>喵喵叫的狗</em>。也就是说，我们可以说服某人狗实际上是猫。这完全破坏了我们的静态类型系统的结构，使其变得比无用更糟（并最终导致未定义的行为）。</p>
+<p>这是当我们在完全天真的情况下应用子类型化时发生的一个简单“查找并替换”的示例。</p>
+<pre><code class="language-rust ignore">fn evil_feeder(pet: &amp;mut Animal) {
+    let spike: Dog = ...;
+
+    // `pet` 是 Animal，Dog 是 Animal 的子类,
+    // 所以这是可行的，对吗..?
+    *pet = spike;
 }
 
 fn main() {
-    let mut forever_str: &amp;'static str = &quot;hello&quot;;
-    {
-        let string = String::from(&quot;world&quot;);
-        overwrite(&amp;mut forever_str, &amp;mut &amp;*string);
-    }
-    // 不好！在打印被释放的内存数据
-    println!(&quot;{}&quot;, forever_str);
+    let mut mr_snuggles: Cat = ...;
+    evil_feeder(&amp;mut mr_snuggles);  // 使用 Dog 替换 mr_snuggles
+    mr_snuggles.meow();             // 噢不，喵喵叫的狗！
 }
-</code></pre></pre>
-<p><code>overwrite</code>的签名显然是合法的，它接受两个相同类型的可变引用，然后用一个覆盖另外一个。</p>
-<p>但是，如果<code>&amp;mut T</code>对于T是协变的，<code>&amp;mut &amp;'static str</code>将会是<code>&amp;mut &amp;'a str</code>的子类型，这是因为<code>&amp;'static str</code>是<code>&amp;'a str</code>的子类型。这时<code>forever_str</code>的生命周期就缩减到和<code>string</code>一样短，<code>overwrite</code>也可以被正常调用。接下来<code>string</code>被释放，等到打印的时候<code>forever_str</code>实际指向了一块释放后的内存空间！所以<code>&amp;mut</code>必须是不变的。</p>
-<p>这是变性的一个基本原则：如果生命周期较短的内容有可能存储在生命周期更长的变量里，这时必须要求变性是不变的。</p>
-<p>更一般的解释是，子类型和变性可用的前提是我们可以安全地忘掉类型的细节。但对于可变引用，总有一些地方（被引用的原始值）记着类型的信息并且假设它们不会改变。如果我们改变了这些信息，原始值的位置就可能出现异常。</p>
-<p>但是，<code>&amp;'a mut T</code>对于<code>'a</code>却是协变的。<code>'a</code>和<code>T</code>最关键的区别是<code>'a</code>是引用自身的属性，而T则是引用借用的。如果改变了T的类型，T的原始值依然记着它的类型。可如果改变的是生命周期的类型，只有引用自己知道这一变化，因此这是安全的。换句话说，<code>&amp;'a mut T</code>拥有<code>'a</code>，但是仅仅借用T。</p>
-<p><code>Box</code>和<code>Vex</code>的情况就很有趣了，他们是协变的，可是你可以在里面存储值。Rust的类型系统允许它们比其他的类型更聪明。为了理解为什么拥有数据所有权的容器类型对于它们的内容是协变的，我们需要考虑两种可能发生子类型变化的方式：通过值和通过引用。</p>
-<p>如果子类型通过值发生变化，原有的记录类型信息的位置会被移除，也意味着容器再也不能使用原有的值了。所以我们也就不用担心有其他的地方记录着类型的信息。换言之，通过值使用子类型的特性会彻底销毁原有类型的信息。例如，这段代码可以编译并正常运行：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn get_box&lt;'a&gt;(str: &amp;'a str) -&gt; Box&lt;&amp;'a str&gt; {
-    // 字符串字面量是&amp;'static str类型，但是我们完全可以“忘掉”这一点，
-    // 就让调用者认为这个字符串的生命周期只有这么短
-    Box::new(&quot;hello&quot;)
-}
-<span class="boring">}
-</span></code></pre></pre>
-<p>如果子类型通过引用发生变化，那么容器类会以<code>&amp;mut Vec&lt;T&gt;</code>类型传递。可是<code>&amp;mut</code>对于它引用的值是不变的，所以<code>&amp;mut Vec&lt;T&gt;</code>对于<code>T</code>实际也是不变的。那么<code>Vec&lt;T&gt;</code>对于<code>T</code>协变这件事在引用的情况下就完全不重要了。</p>
-<p>不过，<code>Box</code>和<code>Vec</code>的协变性在不可变引用的情况下依然有用。所以你可以将<code>&amp;Vec&lt;&amp;'static str&gt;</code>传递给需要<code>&amp;Vec&lt;&amp;'a str&gt;</code>的地方。</p>
-<p>cell类型的不变性可以这样理解：对于cell来说<code>&amp;</code>就是<code>&amp;mut</code>，因为你可以通过<code>&amp;</code>储存值。所以cell必须是不变的，以避免生命周期缩短的问题。</p>
-<p><code>fn</code>是最怪异的，因为它具有混合变性，而且它也是唯一用到了逆变性的地方。下面的函数签名展示了为什么<code>fn(T) -&gt; U</code>对于T是逆变的：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// 'a来自父作用域
-fn foo(&amp;'a str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>这个签名表明函数可以接受任何生命周期不小于<code>'a</code>的<code>&amp;str</code>。如果函数对于<code>&amp;'a str</code>是协变的，那么这个函数</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foo(&amp;'static str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>就是它的子类型并且可以使用。但是，这个函数的要求其实更严格，它只能接受<code>&amp;'static str</code>，不能接受其他类型。给它传递一个<code>&amp;'a str</code>是错误的，因为我们不能假设传递给它的值会永远存在。所以，函数对于它的参数类型肯定不能使协变的。</p>
-<p>如果我们反过来应用逆变性，就万事大吉了！需要一个函数来处理永远存在的字符串，而我们提供了一个处理有限生命周期字符串的函数，这也是完全合理的。所以，</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foo(&amp;'a str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>可以被传递给需要</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foo(&amp;'static str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>的地方。</p>
-<p>那<code>fn(T) -&gt; U</code>对于U怎么又是协变的了呢？看看下面这个函数签名：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// 'a来自父作用域
-fn foo(usize) -&gt; &amp;'a str;
-<span class="boring">}
-</span></code></pre></pre>
-<p>这个函数声明它将返回一个生命周期长于<code>'a</code>的引用。那么下面这个函数</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foot(usize) -&gt; &amp;'static str;
-<span class="boring">}
-</span></code></pre></pre>
-<p>用在这里是完全可以的，因为它的的确确返回了一个生命周期长于<code>'a</code>的引用。所以函数对于它的返回值是协变的。</p>
-<p><code>*const</code>和<code>&amp;</code>有着完全一样的语义，所以变性也是一样的。<code>*mut</code>正相反，它可以解引用出一个<code>&amp;mut</code>，所以和cell一样，它也是不变的。</p>
-<p>以上规则都是针对标准库提供的类型，那么自己定义的类型又如何确定变性呢？简单点说，结构体会继承它的成员的变性。如果结构体<code>Foo</code>有一个成员<code>a</code>，它使用了结构体的泛型参数<code>A</code>，那么<code>Foo</code>对于<code>A</code>的变性就等于<code>a</code>对于<code>A</code>的变性。可如果<code>A</code>被用在了多个成员中：</p>
+</code></pre>
+<p>显然，我们需要比“查找并替换”更健壮的系统。该系统是 <em>变性（variance）</em>，它控制子类型应如何组成的一组规则。最重要的是，变性定义了应禁用子类型化的情况。</p>
+<p>但是在讨论变性之前，让我们快速看一下Rust中子类型的实际发生位置：<em>生命周期</em>！</p>
+<blockquote>
+<p>注意：生命周期的类型性是一个相当随意的构造，有些人不同意这种构造。
+但是，这简化了我们对生命周期和类型进行统一处理的分析。</p>
+</blockquote>
+<p>生命周期只是代码区域，区域可以通过<em>包含（contains）</em>（有效期（outlives））关系进行部分排序。生命周期的子类型指的是：如果<code>'big: 'small</code>（big包含small，或者big比small长寿），那么<code>'big</code>就是<code>'small</code>的子类型。这一点很容易弄错，因为它和我们的直觉是相反的：大的范围是小的范围的子类型。不过如果你对比一下我们举的Animal的例子就清楚了：<em>Cat</em>是一个Animal，外加一些独有的东西，正如<code>'big</code>是<code>'small</code>，外加一些独有的东西。</p>
+<p>换一个角度想，如果需要一个在<code>'small</code>内有效的引用，实际指的是<em>至少</em>在<code>'small</code>中有效的引用。我们并不在乎生命周期是不是完全的一致。
+因此，让我们<strong>忘记</strong>某些东西在<code>'big</code>中有效地引用，而只记得在<code>'small</code>中有效地引用，这应该没问题。</p>
+<p>生命周期的喵喵叫的狗问题将使我们能够在寿命更长的地方存储一个短暂的引用，创建一个悬垂的引用并让在释放后使用。</p>
+<p>值得注意的是，永久生命周期 <code>'static</code> 是每个生命周期的子类型，因为根据定义，它比所有东西都寿命长。在后面的示例中，我们将使用这种关系以使它们尽可能简单。</p>
+<p>话虽如此，我们仍然不知道如何真正<em>使用</em>生命周期的子类型，因为从来没有类型<code>'a</code>。生命周期仅作为某些较大类型的一部分出现，例如<code>&amp;'a u32</code>或<code>IterMut &lt;'a，u32&gt;</code>。 要应用生命周期子类型化，我们需要知道如何构建子类型化。 再一次，我们需要<em>变性</em>。</p>
+<h2><a class="header" href="#变性" id="变性">变性</a></h2>
+<p>变性显得有一点复杂。</p>
+<p>变性是<em>类型构造函数</em>与它的参数相关的一个属性。Rust中的类型构造函数是任意带有无界参数的通用类型。比如，<code>Vec</code>是一个构造函数，它的参数是类型 <code>T</code>，返回值是<code>vec&lt;T&gt;</code>。<code>&amp;</code>和<code>&amp;mut</code>也是构造函数，它们有两个类型：一个生命周期，和一个引用指向的类型。</p>
+<blockquote>
+<p>注意：为了方便起见，我们通常将<code>F &lt;T&gt;</code>称为类型构造函数，以便我们可以轻松地讨论<code>T</code>。希望这在上下文中很清楚。</p>
+</blockquote>
+<p>构造函数F的<em>变性</em>表示了它的输入的子类型如何影响它输出的子类型。给定两个类型 <code>Sub</code> 和 <code>Super</code>，其中，<code>Sub</code> 是 <code>Super</code> 的子类型，Rust中有三种变性：</p>
 <ul>
-<li>如果所有用到A的成员都是协变的，那么Foo对于A就是协变的</li>
-<li>如果所有用到A的成员都是逆变的，那么Foo对于A也是逆变的</li>
-<li>其他的情况，Foo对于A是不变的</li>
+<li>如果<code>F&lt;Sub&gt;</code>是<code>F&lt;Super&gt;</code>的子类型，则<code>F</code>是<em>协变</em>的（子类型闯“穿过”）；</li>
+<li>如果<code>F&lt;Super&gt;</code>是<code>F&lt;Sub&gt;</code>的子类型，则<code>F</code>是<em>逆变</em>的（子类型“反转”）；</li>
+<li>其他情况（即子类型之间没有关系），则<code>F</code>是<em>不变</em>的。</li>
+</ul>
+<p>如果<code>F</code>具有多个类型参数，我们可以说单个变性，例如，<code>F &lt;T，U&gt;</code>在<code>T</code>上是协变的，而在<code>U</code>上是不变的。</p>
+<p>牢记协变从实际上是变性，这一点非常有用。几乎所有关于变性的考虑都是根据某事物是协变还是不变的。实际上，在Rust中，逆变是非常少见的，尽管实际上确实存在。</p>
+<p>以下是重要的变性表，本节的其余部分将专门解释：</p>
+<table><thead><tr><th></th><th></th><th align="center">'a</th><th align="center">T</th><th align="center">U</th></tr></thead><tbody>
+<tr><td>*</td><td><code>&amp;'a T</code></td><td align="center">协变</td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>&amp;'a mut T</code></td><td align="center">协变</td><td align="center">不变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>Box&lt;T&gt;</code></td><td align="center"></td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td></td><td><code>Vec&lt;T&gt;</code></td><td align="center"></td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>UnsafeCell&lt;T&gt;</code></td><td align="center"></td><td align="center">不变</td><td align="center"></td></tr>
+<tr><td></td><td><code>Cell&lt;T&gt;</code></td><td align="center"></td><td align="center">不变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>fn(T) -&gt; U</code></td><td align="center"></td><td align="center"><strong>逆</strong>变</td><td align="center">协变</td></tr>
+<tr><td></td><td><code>*const T</code></td><td align="center"></td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td></td><td><code>*mut T</code></td><td align="center"></td><td align="center">不变</td><td align="center"></td></tr>
+</tbody></table>
+<p>带 * 的类型是我们将重点关注的类型，因为它们在某种意义上是“基本的”。可以通过与其他类似的方式来理解所有其他类型：</p>
+<ul>
+<li><code>Vec&lt;T&gt;</code> 以及所有其他拥有的指针和集合遵循与 <code>Box&lt;T&gt;</code> 相同的逻辑；</li>
+<li><code>Cell&lt;T&gt;</code> 以及其他所有的内部可变类型遵循与 <code>UnsafeCell&lt;T&gt;</code> 相同的逻辑；</li>
+<li><code>*const T</code> 遵循与 <code>&amp;T</code> 相同的逻辑；</li>
+<li><code>*mut T</code> 遵循 <code>&amp;mut T</code>（或者 <code>UnsafeCell&lt;T&gt;</code>） 的逻辑；</li>
+</ul>
+<blockquote>
+<p>注意：语言中逆变的<em>唯一</em>来源是函数的参数，这就是为什么它实际上在实践中并没有太大作用的原因。
+调用逆变涉及使用函数指针进行高阶编程，这些函数指针采用具有特定生命周期的引用
+（与通常的“任意生命周期”相对，后者进入较高级别的生命周期，与子类型无关）。</p>
+</blockquote>
+<p>好的，类型的理论已经够了！让我们尝试将变性的概念应用于Rust，并看一些示例。</p>
+<p>首先，让我们回顾一下喵喵叫的狗的例子：</p>
+<pre><code class="language-rust ignore">fn evil_feeder(pet: &amp;mut Animal) {
+    let spike: Dog = ...;
+
+    // `pet` is an Animal, and Dog is a subtype of Animal,
+    // so this should be fine, right..?
+    *pet = spike;
+}
+
+fn main() {
+    let mut mr_snuggles: Cat = ...;
+    evil_feeder(&amp;mut mr_snuggles);  // Replaces mr_snuggles with a Dog
+    mr_snuggles.meow();             // OH NO, MEOWING DOG!
+}
+</code></pre>
+<p>如果我们看一下变性表，就会发现 <code>&amp;mut T</code> 对 <code>T</code> 是<em>不变</em>。事实证明，这完全可以解决问题！因为不变，Cat是Animal的子类型这一事实无关紧要；<code>&amp;mut Cat</code>仍然不会是<code>&amp;mut Animal</code>的子类型。静态类型检查器将正确阻止我们将Cat传递给<code>evil_feeder</code>。</p>
+<p>子类型的合理性是基于这样的想法，即可以忘记不必要的细节。但是有了引用，总会有人记住那些细节：被引用的值。该值期望这些细节保持真实，并且如果违反其期望，则行为可能不正确。</p>
+<p>使<code>&amp;mut T</code>关于<code>T</code>协变的问题在于，<em>当我们不记得所有约束时</em>，它使我们能够修改原始值。因此，当他们确定自己还有 Cat 时，我们可以让他们有 Dog。</p>
+<p>建立了这个后，我们可以很容易地理解为什么 <code>&amp;T</code> 关于 <code>T</code> 协变<em>是</em>合理的：它不允许你修改值，而只能查看它。没有任何可变的方法，就没有办法让我们弄乱任何细节。我们还可以看到为什么<code>UnsafeCell</code>和所有其他内部可变性类型必须具有不变性：它们使<code>&amp;T</code>像<code>&amp;mut T</code>一样工作！</p>
+<p>现在，引用的生命周期是怎样的？为什么两种引用在它们的生命周期中都可以协变？好吧，这是一个两方面的论点：</p>
+<p>首先，基于生命周期的子类型化引用是<em>Rust中子类型化的整个重点</em>。我们拥有子类型化的唯一原因是，我们可以在预期寿命短的地方传递寿命长的东西。这样更好地工作！</p>
+<p>其次，更重要的是，生命周期只是引用本身的一部分。引用对象的类型是共享知识，这就是为什么仅在一个地方（引用）调整该类型会导致问题的原因。但是，如果你在将引用交给某人是将引用的生命周期缩减，则该生命周期信息不会以任何方式共享。现在有两个具有独立生命周期的独立引用，使用另一种方法无法破坏原始引用的生命周期。</p>
+<p>或者更确切地说，弄乱某人生命周期的唯一方法是构建一只喵喵叫的狗。但是，一旦你尝试构建一只喵喵狗，就应该将生命周期固定为不变类型，以防止生命周期缩短。为了更好地理解这一点，让我们将猫叫问题移植到真正的Rust上。</p>
+<p>在喵喵叫的狗问题中，我们采用子类型（Cat），将其转换为超类型（Animal），然后使用该事实将满足父类型但不满足子类型（Dog）约束的值覆盖子类型。</p>
+<p>因此，对于生命周期，我们希望将其寿命长的东西转换成短寿命的东西，然后用它来写一些寿命不长的东西到期望寿命长的地方。</p>
+<p>也就是：</p>
+<pre><code class="language-rust ignore">fn evil_feeder&lt;T&gt;(input: &amp;mut T, val: T) {
+    *input = val;
+}
+
+fn main() {
+    let mut mr_snuggles: &amp;'static str = &quot;meow! :3&quot;;  // mr. snuggles 一直存活!!
+    {
+        let spike = String::from(&quot;bark! &gt;:V&quot;);
+        let spike_str: &amp;str = &amp;spike;                // 只在代码块内存活
+        evil_feeder(&amp;mut mr_snuggles, spike_str);    // EVIL!
+    }
+    println!(&quot;{}&quot;, mr_snuggles);                     // 释放后使用?
+}
+</code></pre>
+<p>当我们运行这个程序时，我们会得到什么？</p>
+<pre><code class="language-text">error[E0597]: `spike` does not live long enough
+  --&gt; src/main.rs:9:32
+   |
+9  |         let spike_str: &amp;str = &amp;spike;
+   |                                ^^^^^ borrowed value does not live long enough
+10 |         evil_feeder(&amp;mut mr_snuggles, spike_str);
+11 |     }
+   |     - borrowed value only lives until here
+   |
+   = note: borrowed value must be valid for the static lifetime...
+</code></pre>
+<p>好，它无法编译！让我们详细分解这里发生的事情。</p>
+<p>首先让我们看一下新的<code>evil_feeder</code>函数：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn evil_feeder&lt;T&gt;(input: &amp;mut T, val: T) {
+    *input = val;
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>它所做的只是获取一个可变的引用和一个值，并用它覆盖引用对象。此函数重要的是它创建了一个类型相等约束。它清楚地在签名中指出了所指对象和值必须是<em>完全相同</em>的类型。</p>
+<p>同时，在调用方中，我们传递 <code>&amp;mut &amp;'static str</code> 和 <code>&amp;'spike_str str</code>。</p>
+<p>因为<code>&amp;mut T</code>相对于<code>T</code>是不变的，所以编译器得出结论，它不能对第一个参数应用任何子类型，因此<code>T</code>必须精确地是<code>&amp;'static str</code>。</p>
+<p>另一个参数只是一个<code>&amp;'a str</code>，它对于<code>a</code><em>是</em>协变的。因此，编译器采用了一个约束：<code>&amp;'spike_str str</code>必须是<code>&amp;'static str</code>（包括）的子类型，这反过来意味着<code>'spike_str</code>必须是<code>'static</code>（包括）的子类型。 这就是说，<code>'spike_str</code>必须包含<code>'static</code>。但是只有一个东西包含<code>'static</code>──<code>'static</code>本身！</p>
+<p>这就是为什么当我们尝试将<code>&amp;spike</code>分配给<code>spike_str</code>时出现错误的原因。编译器进行了倒退的工作，以得出<code>spike_str</code>必须永远存在的结论，而<code>&amp;spike</code>不能存活那么久。</p>
+<p>因此，即使引用在其整个生命周期中都是协变的，但只要将它们置于上下文中，它们都可以“继承”不变性，这可能会对此造成不良影响。在这种情况下，只要将引用放入<code>&amp;mut T</code>中，我们就继承了不变性。</p>
+<p>事实证明，Box（以及Vec，Hashmap等）为什么可以协变的论点与为什么生命周期可以协变的论点非常相似：只要你尝试将它们塞入诸如可变引用之类的东西，它们继承不变性，并且可以防止你做任何不好的事情。</p>
+<p>但是，Box使我们更容易专注于引用的按值方面，这部分我们通常是掩盖。</p>
+<p>与许多语言允许随时对值进行自由别名不同，Rust有一个非常严格的规则：如果你允许对值进行可变或移动，则可以保证你可以唯一访问它。</p>
+<p>考虑以下代码：</p>
+<pre><code class="language-rust ignore">let mr_snuggles: Box&lt;Cat&gt; = ..;
+let spike: Box&lt;Dog&gt; = ..;
+
+let mut pet: Box&lt;Animal&gt;;
+pet = mr_snuggles;
+pet = spike;
+</code></pre>
+<p>我们已经忘记了<code>mr_snuggles</code>是一只 Cat，或者我们用 Dog 将它覆盖了，这根本没有问题，因为一旦我们将 mr_snuggles 移到只知道他是Animal的变量上，<strong>我们摧毁了宇宙中唯一记得它是 Cat 的东西</strong>！</p>
+<p>与关于不可变引用由于它们不允许你进行任何更改而听起来是协变的说法相反，拥有的值可以是协变量的，因为它们使你改变<em>一切</em>。旧位置和新位置之间没有连接。应用按值子类型化是知识破坏的不可逆转的行为，并且没有任何关于过去情况的记忆，任何人都不会被诱使对这些旧信息采取行动！</p>
+<p>只剩下一件事要解释了：函数指针。</p>
+<p>要了解为什么<code>fn(T) -&gt; U</code>应该相对于<code>U</code>是协变的，请考虑以下签名：</p>
+<pre><code class="language-rust ignore">fn get_animal() -&gt; Animal;
+</code></pre>
+<p>此函数声称可产生 Animal。 因此，为函数提供以下签名是完全有效的：</p>
+<pre><code class="language-rust ignore">fn get_animal() -&gt; Cat;
+</code></pre>
+<p>毕竟，Cat是Animal，因此始终生产Cat是生产Animal的完全有效的方法。或将其与真实的Rust相关联：如果我们需要一个函数来产生可以生存的<code>'short</code>的东西，那么它可以产生可以生存<code>'long</code>的东西。我们不在乎，我们可以忘记这一事实。</p>
+<p>但是，相同的逻辑不适用于<em>参数变量</em>。 考虑尝试满足：</p>
+<pre><code class="language-rust ignore">fn handle_animal(Animal);
+</code></pre>
+<p>使用</p>
+<pre><code class="language-rust ignore">fn handle_animal(Cat);
+</code></pre>
+<p>第一个函数可以接受 Dogs，但是第二个函数绝对不能。协变性在这里不起作用。但是，如果我们将其翻转，它实际上<em>确实</em>有效！如果我们需要一个可以处理Cats的函数，那么一个可以处理<em>任何</em> Animal 的函数肯定可以正常工作。或者将其与真正的Rust关联起来：如果我们需要一个能够处理至少<code>'long</code>存活期的函数，那么它能够处理至少<code>'short</code>生存期的函数。</p>
+<p>这就是为什么与语言中的任何其他不同的是，函数类型对于参数是逆变的。</p>
+<p>至此，对于标准库提供的类型来说，这一切都很好，那么<em>自己</em>定义的类型又如何确定变性呢？简单点说，结构体会继承它的成员的变性。如果结构体<code>MyType</code>有一个成员<code>a</code>，它使用了结构体的泛型参数<code>A</code>，那么<code>MyType</code>对于<code>A</code>的变性就等于<code>a</code>对于<code>A</code>的变性。</p>
+<p>可如果<code>A</code>被用在了多个成员中：</p>
+<ul>
+<li>如果所有用到<code>A</code>的成员都是协变的，那么MyType对于<code>A</code>就是协变的</li>
+<li>如果所有用到<code>A</code>的成员都是逆变的，那么MyType对于<code>A</code>也是逆变的</li>
+<li>其他的情况，MyType对于<code>A</code>是不变的</li>
 </ul>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use std::cell::Cell;
 
-struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
+struct MyType&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
     a: &amp;'a A,     // 对于'a和A协变
     b: &amp;'b mut B, // 对于'b协变，对于B不变
 

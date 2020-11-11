@@ -636,11 +636,8 @@ let Ok(num) = res;
 <h1><a class="header" href="#所有权和生命周期" id="所有权和生命周期">所有权和生命周期</a></h1>
 <p>所有权是Rust的一个突破性功能。它让Rust可以彻底告别垃圾回收，同时做到内存安全和高效率。在涉及到所有权系统的细节之前，我们先看一下这种设计的目的。</p>
 <p>我们假设你认同垃圾回收器（GC）不总是内存管理的最佳方案，在一些场景中需要手工地管理内存。如果你并不这么认为，那么请出门右转使用其他的语言吧。</p>
-<p>但是，无论你怎么看待GC，它确实是保证代码安全的大杀器。你永远不需要担心有什么内容会被过早释放（尽管有的时候你已经不想再使用它们了……）。这是C和C++会普遍遇到的问题。看一下这个曾纠缠过每一个使用过非GC语言的人的简单错误：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn as_str(data: &amp;u32) -&gt; &amp;str {
+<p>但是，无论你怎么看待GC，它确实是保证代码安全的<em>大杀器</em>。你永远不需要担心有什么内容会被<em>过早</em>释放（尽管有的时候你已经不想再使用它们了……）。这是C和C++会普遍遇到的问题。看一下这个曾纠缠过每一个使用过非GC语言的人的简单错误：</p>
+<pre><code class="language-rust ignore">fn as_str(data: &amp;u32) -&gt; &amp;str {
     // 计算字符串
     let s = format!(&quot;{}&quot;, data);
 
@@ -649,15 +646,11 @@ let Ok(num) = res;
     // （当然这段代码在Rust中不能编译）
     &amp;s
 }
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>这正是Rust的所有权系统要解决的问题。Rust知道<code>&amp;s</code>生效的作用域，所以可以避免出现逃逸。不过这个例子太简单了，哪怕是C的编译器也可能捕捉到其中的错误。但是当代码量越来越大，指针来自四面八方的不同的函数时，事情就变得复杂了。C编译器最终会败下阵来，无法作出充分的逃逸分析来判断你的代码是否足够健壮。它能做的只有假设你的程序是正确的从而接受它。</p>
 <p>这种事情永远不会发生在Rust的世界。Rust需要程序员向编译器保证自己代码的健壮性。</p>
 <p>当然，Rust所有权系统要做的事有很多，不是仅仅验证引用不会超出被引用内容作用域这么简单。这是因为保证指针有效的条件比这个要复杂得多。以下面的代码为例。</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let mut data = vec![1, 2, 3];
+<pre><code class="language-rust ignore">let mut data = vec![1, 2, 3];
 // 获得内部引用
 let x = &amp;data[0];
 
@@ -667,9 +660,8 @@ let x = &amp;data[0];
 data.push(4);
 
 println!(&quot;{}&quot;, x);
-<span class="boring">}
-</span></code></pre></pre>
-<p>简单地分析作用域不足以防止这个bug，因为<code>data</code>在我们使用它的范围内确实是一直存在的。但是它在我们引用它的同时发生了变化。这就是为什么Rust要求引用的存在要锁定被引用内容和它的owner。</p>
+</code></pre>
+<p>简单地分析作用域不足以防止这个bug，因为<code>data</code>在我们使用它的范围内确实是一直存在的。但是它在我们引用它的同时发生了<em>变化</em>。这就是为什么Rust要求引用的存在要锁定被引用内容和它的owner。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/references.html">https://doc.rust-lang.org/nomicon/references.html</a></p>
 <h1><a class="header" href="#引用" id="引用">引用</a></h1>
 <p>有两种引用的类型：</p>
@@ -684,7 +676,7 @@ println!(&quot;{}&quot;, x);
 </ul>
 <p>就这些。这就是全部的引用模型。</p>
 <p>当然，我们可能需要定义一下别名(alias)是什么意思。</p>
-<pre><code>error[E0425]: cannot find value `aliased` in this scope
+<pre><code class="language-text">error[E0425]: cannot find value `aliased` in this scope
  --&gt; &lt;rust.rs&gt;:2:20
   |
 2 |     println!(&quot;{}&quot;, aliased);
@@ -699,7 +691,7 @@ error: aborting due to previous error
 <p>首先，有几点重要声明：</p>
 <ul>
 <li>以下的讨论将采用最广泛意义上的别名的定义。而Rust的定义可能会更加严格,需要考虑到可变性和生命周期。</li>
-<li>我们假设程序都是单线程且不会中断的，同时也不会去考虑存储器映射之类的问题。除非特别指定，否则Rust默认这些事情不存在。更多的细节请见<a href="https://doc.rust-lang.org/nomicon/concurrency.html">并发章节</a>。</li>
+<li>我们假设程序都是单线程且不会中断的，同时也不会去考虑存储器映射之类的问题。除非特别指定，否则Rust默认这些事情不存在。更多的细节请见<a href="8.%E5%B9%B6%E5%8F%91.html">并发章节</a>。</li>
 </ul>
 <p>基于这些，我们给出定义：当变量和指针表示的内存区域有重叠时，它们互为对方的别名。</p>
 <h2><a class="header" href="#为什么别名很重要" id="为什么别名很重要">为什么别名很重要</a></h2>
@@ -782,10 +774,12 @@ if *input &gt; 10 {  // true (*input == 20)
 <p>当然，一个完整的别名模型也要考虑到诸如函数调用（可能改变我们不可见的内容）、裸指针（不存在限制别名的需求），以及UnsafeCell（允许被<code>&amp;</code>引用的内容可变）。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetimes.html">https://doc.rust-lang.org/nomicon/lifetimes.html</a></p>
 <h1><a class="header" href="#生命周期" id="生命周期">生命周期</a></h1>
-<p>Rust在整个生命周期里强制执行生命周期的规则。生命周期说白了就是作用域的名字。每一个引用以及包含引用的数据结构，都要有一个生命周期来指定它保持有效的作用域。</p>
+<p>Rust在整个生命周期里强制执行<em>生命周期</em>的规则。</p>
+<p>生命周期是引用必须有效的命名代码区域。这些区域可能相当复杂，因为它们对应于程序中的执行路径。在这些执行路径上甚至可能存在漏洞，因为只要在重新使用引用之前对其进行了初始化，就有可能使引用无效。包含引用（或假装为引用）的类型也可以用生命周期进行标记，以便 Rust 可以防止它们变无效。</p>
+<p>在我们的大多数示例中，生命周期将与作用域一致。这是因为我们的示例很简单。它们不一致的更为复杂的情况如下所述。</p>
 <p>在函数体内，Rust通常不需要你显式地给生命周期起名字。这是因为在本地上下文里，一般没有必要关注生命周期。Rust知道程序的全部信息，从而可以完美地执行各种操作。它可能会引入许多匿名或者临时的作用域让程序顺利执行。</p>
 <p>但是如果你要跨出函数的边界，就需要关心生命周期了。生命周期用这样的符号表示：<code>'a</code>,<code>'static</code>。为了更清晰地了解生命周期，我们假设我们可以为生命周期打标签，去掉本章所有例子的语法糖。</p>
-<p>最开始，我们的示例代码对作用域和生命周期使用了很激进的语法糖特性——甜得像玉米糖浆一样，因为把所有的东西都显式地写出来实在很讨厌。所有的Rust代码都采用比较激进的理论以省略“显而易见”的东西。</p>
+<p>最开始，我们的示例代码对作用域和生命周期使用了<em>很激进</em>的语法糖特性——甜得像玉米糖浆一样，因为把所有的东西都显式地写出来实在<em>很讨厌</em>。所有的Rust代码都采用比较激进的理论以省略“显而易见”的东西。</p>
 <p>一个特别有意思的语法糖是，每一个<code>let</code>表达式都隐式引入了一个作用域。大多数情况下，这一点并不重要。但是当变量之间互相引用的时候，这就很重要了。举个简单的例子，我们彻底去掉下面这段代码的语法糖：</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
@@ -842,7 +836,7 @@ z = y;
 </span></code></pre></pre>
 <h2><a class="header" href="#示例引用超出被引用内容生命周期" id="示例引用超出被引用内容生命周期">示例：引用超出被引用内容生命周期</a></h2>
 <p>好了，让我们再看一遍曾经举过的一个例子：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>fn as_str(data: &amp;u32) -&gt; &amp;str {
@@ -863,8 +857,8 @@ z = y;
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>函数<code>as_str</code>的签名里接受了一个带有生命周期的u32类型的引用，并且保证会返回一个生命周期一样长的str类型的引用。从这个签名我们就已经可以看出问题了。它表示我们必须到那个u32引用的作用域，或者比它还要早的作用域里去找一个str。这就有点不合理了。</p>
-<p>接下来我们生成一个字符串<code>s</code>，然后返回它的引用。我们的函数要求这个引用的有效期不能小于<code>'a</code>，那是我们给引用指定的生命周期。不幸的是，<code>s</code>是在作用域'b里面定义的。除非'b包含'a这个函数才可能是正确的——而这显然不可能，因为'a必须包含它所调用的函数。这样我们创建了一个生命周期超出被引用内容的引用，这明显违背了之前提到的引用的第一条规则。编译器十分感动然后拒绝了我们。</p>
+<p>函数<code>as_str</code>的签名里接受了一个带有<em>一些</em>生命周期的u32类型的引用，并且保证会返回一个生命周期<em>一样长</em>的str类型的引用。从这个签名我们就已经可以看出问题了。它表示我们必须到那个u32引用的作用域，或者比它<em>还要早</em>的作用域里去找一个str。这就有点不合理了。</p>
+<p>接下来我们生成一个字符串<code>s</code>，然后返回它的引用。我们的函数要求这个引用的有效期不能小于<code>'a</code>，那是我们给引用指定的生命周期。不幸的是，<code>s</code>是在作用域<code>'b</code>里面定义的。除非<code>'b</code>包含<code>'a</code>这个函数才可能是正确的——而这显然不可能，因为<code>'a</code>必须包含它所调用的函数。这样我们创建了一个生命周期超出被引用内容的引用，这<em>明显</em>违背了之前提到的引用的第一条规则。编译器十分感动然后拒绝了我们。</p>
 <p>我们扩展一下这个例子，一边看得更清楚：</p>
 <pre><pre class="playground"><code class="language-rust">fn as_str&lt;'a&gt;(data: &amp;'a u32) -&gt; &amp;'a str {
     'b: {
@@ -896,10 +890,10 @@ fn main() {
 <span class="boring">}
 </span></code></pre></pre>
 <p>我们必须创建一个值然后连同它的所有权一起返回。除非一个字符串是<code>&amp;'a u32</code>的成员，我们才能返回<code>&amp;'a str</code>，显然事情并不是这样的。</p>
-<p>（其实我们也可以返回一个字符串的字面量，它是一个全局的变量，可以认为是处于栈的底部。尽管这样极大限制了函数的使用场合。）</p>
+<p>（其实我们也可以返回一个字符串的字面量，它是一个全局的变量，可以认为是处于栈的底部。尽管这样<em>有些</em>限制了我们的实现。）</p>
 <h2><a class="header" href="#示例存在可变引用的别名" id="示例存在可变引用的别名">示例：存在可变引用的别名</a></h2>
 <p>在看另一个老的例子：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut data = vec![1, 2,3];
@@ -926,13 +920,78 @@ println!(&quot;{}&quot;, x);
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>这里的问题更加微妙也更有趣。我们希望Rust出于如下的原因拒绝编译这段代码：我们有一个有效的指向<code>data</code>的内部数据的引用<code>x</code>，而同时又创建了一个<code>data</code>的可变引用用于执行<code>push</code>。也就是说出现了可变引用的别名，这违背了引用的第二条规则。</p>
-<p>但是Rust其实并非因为这个原因判断这段代码有问题。Rust不知道<code>x</code>是<code>data</code>的子内容的引用，它其实完全不知道Vec的内部是什么样子的。它只知道<code>x</code>必须在<code>'b</code>范围内有效，这样才能打印其中的内容。函数<code>Index::index</code>的签名因此要求传递的<code>data</code>的引用也必须在<code>'b</code>的范围内有效。当我们调用<code>push</code>的时候，Rust发现我们要创建一个<code>&amp;'c mut data</code>。它知道<code>'c</code>是包含在<code>'b</code>以内的，因为<code>&amp;'b data</code>还存活着，所以它拒绝了这段程序。</p>
-<p>我们看到了生命周期系统要比引用的保护措施更加简单粗暴。大多数情况下这也没什么，它让我们不用没完没了地向编译器解释我们的程序。但是这也意味着许多语义上正确的程序会被编译器拒绝，因为生命周期的规则太死板了。</p>
+<p>这里的问题更加微妙也更有趣。我们希望Rust出于如下的原因拒绝编译这段代码：我们有一个有效的指向<code>data</code>的内部数据的引用<code>x</code>，而同时又创建了一个<code>data</code>的可变引用用于执行<code>push</code>。也就是说出现了可变引用的别名，这违背了引用的<em>第二条</em>规则。</p>
+<p>但是Rust其实<em>并非</em>因为这个原因判断这段代码有问题。Rust不知道<code>x</code>是<code>data</code>的子内容的引用，它其实完全不知道<code>Vec</code>的内部是什么样子的。它<em>只</em>知道<code>x</code>必须在<code>'b</code>范围内有效，这样才能打印其中的内容。函数<code>Index::index</code>的签名因此要求传递的<code>data</code>的引用也必须在<code>'b</code>的范围内有效。当我们调用<code>push</code>的时候，Rust发现我们要创建一个<code>&amp;'c mut data</code>。它知道<code>'c</code>是包含在<code>'b</code>以内的，因为<code>&amp;'b data</code>还存活着，所以它拒绝了这段程序。</p>
+<p>我们看到了生命周期系统要比引用的保护措施更加简单粗暴。大多数情况下这也没什么，它让我们不用没完没了地向编译器解释我们的程序。但是这也意味着许多语义上<em>正确的</em>程序会被编译器拒绝，因为生命周期的规则太死板了。</p>
+<h2><a class="header" href="#生命周期所覆盖的区域" id="生命周期所覆盖的区域">生命周期所覆盖的区域</a></h2>
+<p>从创建之处到最后一次使用，生命周期（有时称为<em>借用</em>）是<em>有效的</em>。借来的东西只需要借用存活就可以。这看起来很简单，但几乎没有什么微妙之处。</p>
+<p>以下代码段将可以编译，因为在打印<code>x</code>之后不再需要它了，所以它是悬垂的还是别名的都没关系（即使变量<code>x</code><em>技术上</em>存在到作用域的最后）。</p>
+<pre><pre class="playground"><code class="language-rust edition2018">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = vec![1, 2, 3];
+let x = &amp;data[0];
+println!(&quot;{}&quot;, x);
+// 此处可行，x 不再需要。
+data.push(4);
+<span class="boring">}
+</span></code></pre></pre>
+<p>但是，如果该值具有析构函数，则该析构函数将在作用域的末尾运行。运行析构函数被认为是一种使用──显然是最后一次。因此，这将<em>不能</em>编译。</p>
+<pre><pre class="playground"><code class="language-rust edition2018 compile_fail">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug)]
+struct X&lt;'a&gt;(&amp;'a i32);
+
+impl Drop for X&lt;'_&gt; {
+    fn drop(&amp;mut self) {}
+}
+
+let mut data = vec![1, 2, 3];
+let x = X(&amp;data[0]);
+println!(&quot;{:?}&quot;, x);
+data.push(4);
+// 在这里，析构函数已运行，因此将无法编译。
+<span class="boring">}
+</span></code></pre></pre>
+<p>一种使编译器确信<code>x</code>不再有效的方法是在<code>data.push(4)</code>之前使用 <code>drop(x)</code>。</p>
+<p>此外，借用可能有多种可能的最后使用，例如在条件的每个分支中。</p>
+<pre><pre class="playground"><code class="language-rust edition2018">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span><span class="boring">fn some_condition() -&gt; bool { true }
+</span>let mut data = vec![1, 2, 3];
+let x = &amp;data[0];
+
+if some_condition() {
+    println!(&quot;{}&quot;, x); // 这是该分支中`x`的最后使用
+    data.push(4);      // 所以这里可行
+} else {
+    // 这里没有使用`x`，因此有效的最后一个使用是在示例顶部创建x时。
+    data.push(5);
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>生命周期可能会有停顿。或者，你可能会认为它是两个不同的借用刚好与同一个局部变量绑定在一起。这通常在循环时发生（在循环结束时写入变量的新值，并在下一次迭代的顶部最后一次使用该变量）。</p>
+<pre><pre class="playground"><code class="language-rust edition2018">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let mut data = vec![1, 2, 3];
+// 此 mut 允许我们更改应用的指向
+let mut x = &amp;data[0];
+
+println!(&quot;{}&quot;, x); // 借用的最后一次使用
+data.push(4);
+x = &amp;data[3]; // 我们在这里开始新的借用
+println!(&quot;{}&quot;, x);
+<span class="boring">}
+</span></code></pre></pre>
+<p>从历史上看，Rust 一直保持借用直到作用域结束，因此这些示例可能无法使用较旧的编译器进行编译。另外，在某些极端情况下，Rust 无法正确缩短借用的有效部分，即使看起来像样也无法编译。这些将随着时间的推移而解决。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetime-mismatch.html">https://doc.rust-lang.org/nomicon/lifetime-mismatch.html</a></p>
 <h1><a class="header" href="#生命周期的局限" id="生命周期的局限">生命周期的局限</a></h1>
 <p>考虑下面的代码：</p>
-<pre><pre class="playground"><code class="language-rust">struct Foo;
+<pre><pre class="playground"><code class="language-rust edition2018 compile_fail">#[derive(Debug)]
+struct Foo;
 
 impl Foo {
     fn mutate_and_share(&amp;mut self) -&gt; &amp;Self {&amp;*self}
@@ -943,26 +1002,22 @@ fn main() {
     let mut foo = Foo;
     let loan = foo.mutate_and_share();
     foo.share();
+    println!(&quot;{:?}&quot;, loan);
 }
 </code></pre></pre>
 <p>你可能觉得它能成功编译。我们调用<code>mutate_and_share</code>，临时可变地借用<code>foo</code>，但接下来返回一个共享引用。因为调用<code>foo.share()</code>时没有可变的引用了，所以我们认为可以正常调用。</p>
 <p>但是当我们尝试编译它：</p>
-<pre><code>&lt;anon&gt;:11:5: 11:8 error: cannot borrow `foo` as immutable because it is also borrowed as mutable
-&lt;anon&gt;:11     foo.share();
-              ^~~
-&lt;anon&gt;:10:16: 10:19 note: previous borrow of `foo` occurs here; the mutable borrow prevents subsequent moves, borrows, or modification of `foo` until the borrow ends
-&lt;anon&gt;:10     let loan = foo.mutate_and_share();
-                         ^~~
-&lt;anon&gt;:12:2: 12:2 note: previous borrow ends here
-&lt;anon&gt;:8 fn main() {
-&lt;anon&gt;:9     let mut foo = Foo;
-&lt;anon&gt;:10     let loan = foo.mutate_and_share();
-&lt;anon&gt;:11     foo.share();
-&lt;anon&gt;:12 }
-          ^
+<pre><code class="language-text">error[E0502]: cannot borrow `foo` as immutable because it is also borrowed as mutable
+  --&gt; src/main.rs:12:5
+   |
+11 |     let loan = foo.mutate_and_share();
+   |                --- mutable borrow occurs here
+12 |     foo.share();
+   |     ^^^ immutable borrow occurs here
+13 |     println!(&quot;{:?}&quot;, loan);
 </code></pre>
-<p>发生了什么呢？嗯……我们遇到了和<a href="https://doc.rust-lang.org/nomicon/lifetimes.html#example-aliasing-a-mutable-reference">上一章的示例2</a>相同的错误。我们去掉语法糖，会得到这样的代码:</p>
-<pre><pre class="playground"><code class="language-rust">struct Foo;
+<p>发生了什么呢？嗯……我们遇到了和<a href="3.3.%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F.html#%E7%A4%BA%E4%BE%8B%E5%AD%98%E5%9C%A8%E5%8F%AF%E5%8F%98%E5%BC%95%E7%94%A8%E7%9A%84%E5%88%AB%E5%90%8D">上一章的示例2</a>相同的错误。我们去掉语法糖，会得到这样的代码:</p>
+<pre><code class="language-rust ignore">struct Foo;
 
 impl Foo {
     fn mutate_and_share&lt;'a&gt;(&amp;'a mut self) -&gt; &amp;'a Self { &amp;'a *self }
@@ -977,17 +1032,39 @@ fn main() {
             'd: {
                 Foo::share::&lt;'d&gt;(&amp;'d foo);
             }
+            println!(&quot;{:?}&quot;, loan);
         }
     }
 }
-</code></pre></pre>
+</code></pre>
 <p>生命周期系统强行把<code>&amp;mut foo</code>的生命周期扩展到'c，以和<code>loan</code>的生命周期以及<code>mutate_and_share</code>的签名匹配。接下来我们调用<code>share</code>，Rust认为我们在给<code>&amp;'c mut foo</code>创建别名，于是拒绝了我们。</p>
 <p>这段程序显然完全符合引用的语义，但是我们的生命周期系统过于粗糙，无法对它进行正确的分析。</p>
-<p>接下来，还有什么普遍的问题吗？关于SEME区域的，大概吧？</p>
+<h2><a class="header" href="#借用减少不当" id="借用减少不当">借用减少不当</a></h2>
+<p>以下当前无法编译，因为Rust不了解不再需要借用，因此保守地退回到使用整个作用域。这最终将得到解决。</p>
+<pre><pre class="playground"><code class="language-rust edition2018 compile_fail">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span><span class="boring">use std::collections::HashMap;
+</span><span class="boring">use std::hash::Hash;
+</span>fn get_default&lt;'m, K, V&gt;(map: &amp;'m mut HashMap&lt;K, V&gt;, key: K) -&gt; &amp;'m mut V
+where
+    K: Clone + Eq + Hash,
+    V: Default,
+{
+    match map.get_mut(&amp;key) {
+        Some(value) =&gt; value,
+        None =&gt; {
+            map.insert(key.clone(), V::default());
+            map.get_mut(&amp;key).unwrap()
+        }
+    }
+}
+<span class="boring">}
+</span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/lifetime-elision.html">https://doc.rust-lang.org/nomicon/lifetime-elision.html</a></p>
 <h1><a class="header" href="#省略生命周期" id="省略生命周期">省略生命周期</a></h1>
-<p>为了让语言的表达方式更人性化，Rust允许函数的签名中省略生命周期。</p>
-<p>“生命周期位置”指的是你在类型中可以写生命周期的地方。</p>
+<p>为了让语言的表达方式更人性化，Rust允许函数的签名中<em>省略</em>生命周期。</p>
+<p>“<em>生命周期位置</em>”指的是你在类型中可以写生命周期的地方。</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -1004,8 +1081,8 @@ T&lt;'a&gt;
 <p>省略的规则如下：</p>
 <ul>
 <li>每一个在输入位置省略的生命周期都对应一个唯一的生命周期参数。</li>
-<li>如果只有一个输入的生命周期位置（无论省略还是没省略），那个生命周期会赋给所有省略了的输出生命周期。</li>
-<li>如果有多个输入生命周期位置，而其中一个是<code>&amp;self</code>或者<code>&amp;mut self</code>，那么<code>self</code>的生命周期会赋给所有省略了的输出生命周期。</li>
+<li>如果只有一个输入的生命周期位置（无论省略还是没省略），那个生命周期会赋给<em>所有</em>省略了的输出生命周期。</li>
+<li>如果有多个输入生命周期位置，而其中一个是<code>&amp;self</code>或者<code>&amp;mut self</code>，那么<code>self</code>的生命周期会赋给<em>所有</em>省略了的输出生命周期。</li>
 <li>除了上述两种情况，其他省略生命周期的情况都是错误的。</li>
 </ul>
 <p>几个例子：</p>
@@ -1037,7 +1114,7 @@ fn new&lt;'a&gt;(buf: &amp;'a mut [u8]) -&gt; BufWriter&lt;'a&gt;          // �
 </span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html">https://doc.rust-lang.org/nomicon/unbounded-lifetimes.html</a></p>
 <h1><a class="header" href="#无界生命周期" id="无界生命周期">无界生命周期</a></h1>
-<p>非安全代码经常会凭空变出来一些引用和生命周期。这些生命周期都是无界的。最常见的场景是解引用一个裸指针，然后产生一个拥有无界生命周期的引用。这些生命周期根据上下文的要求，想要多大就可以有多大。这其实比简单的设为<code>'static</code>更加强大。比如<code>&amp;'static &amp;'a T</code>是无法通过类型检查的，但是无界生命周期可以完美适配<code>&amp;'a &amp;'a T</code>。不过大多数情况下，这种的无界生命周期会被视为`'static'。</p>
+<p>非安全代码经常会凭空变出来一些引用和生命周期。这些生命周期都是<em>无界的</em>。最常见的场景是解引用一个裸指针，然后产生一个拥有无界生命周期的引用。这些生命周期根据上下文的要求，想要多大就可以有多大。这其实比简单的设为<code>'static</code>更加强大。比如<code>&amp;'static &amp;'a T</code>是无法通过类型检查的，但是无界生命周期可以完美适配<code>&amp;'a &amp;'a T</code>。不过大多数情况下，这种的无界生命周期会被视为`'static'。</p>
 <p>几乎没有哪个引用是<code>'static</code>，所以这样很可能是错误的。<code>transmute</code>和<code>transmute_copy</code>是两种很主要的例外情况。我们应该尽量早的确定无界生命周期的边界，特别是在涉及到函数调用的情况下。</p>
 <p>对于一个函数，任何不是从输入那里来的输出生命周期都是无界的。比如：</p>
 <pre><pre class="playground"><code class="language-rust">
@@ -1046,8 +1123,8 @@ fn new&lt;'a&gt;(buf: &amp;'a mut [u8]) -&gt; BufWriter&lt;'a&gt;          // �
 </span>fn get_str&lt;'a&gt;() -&gt; &amp;'a str;
 <span class="boring">}
 </span></code></pre></pre>
-<p>这个函数会产生一个拥有无界生命周期的<code>&amp;str</code>。最简单的避免无界生命周期的方式就是在函数声明中运用生命周期省略。如果一个输出生命周期被省略了，它必须受限于一个输入生命周期。当然它有可能被赋予了一个错误的生命周期，但是这样通常只会产生一个编译错误，总比允许它破坏内存安全要好。</p>
-<p>在函数的内部，限制生命周期范围是极容易出错的。最安全且简单的限制生命周期的方法是将它作为一个有有界生命周期的函数的返回值。但是，如果这个不被接受，引用可以被设置成一个特别的生命周期。不幸的是，我们不可能为函数所有的生命周期命名。（<em>译注：我真的没看懂这一段在说什么……强烈建议看原文，不要看我</em>）</p>
+<p>这个函数会产生一个拥有无界生命周期的<code>&amp;str</code>。最简单的避免无界生命周期的方式就是在函数声明中运用生命周期省略。如果一个输出生命周期被省略了，它<em>必须</em>受限于一个输入生命周期。当然它有可能被赋予了一个<em>错误的</em>生命周期，但是这样通常只会产生一个编译错误，总比允许它破坏内存安全要好。</p>
+<p>在函数的内部，限制生命周期范围是极容易出错的。最安全且简单的限制生命周期的方法是将它作为函数的一个有界生命周期的返回值。但是，如果这个不被接受，引用可以被设置成一个特别的生命周期。不幸的是，我们不可能为函数内所有的生命周期命名。（<em>译注：我真的没看懂这一段在说什么……强烈建议看原文，不要看我</em>）</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/hrtb.html">https://doc.rust-lang.org/nomicon/hrtb.html</a></p>
 <h1><a class="header" href="#高阶trait边界hrtb" id="高阶trait边界hrtb">高阶trait边界(HRTB)</a></h1>
 <p>Rust的<code>Fn</code> trait是个神奇的存在。比如，我们可以写出这样的代码：</p>
@@ -1072,7 +1149,7 @@ fn main() {
 }
 </code></pre></pre>
 <p>如果我们像在生命周期那一章里一样地去掉这段代码的语法糖，我们会发现一些问题：</p>
-<pre><pre class="playground"><code class="language-rust">struct Closure&lt;F&gt; {
+<pre><code class="language-rust ignore">struct Closure&lt;F&gt; {
     data: (u8, u16),
     func: F,
 }
@@ -1093,144 +1170,229 @@ fn main() {
         println!(&quot;{}&quot;, clo.call());
     }
 }
-</code></pre></pre>
-<p>我们究竟应该怎么表示<code>F</code>的trait边界里的生命周期呢？这里需要一个生命周期，但是在我们进入<code>call</code>函数之前我们都不知道生命周期的名字！而且，那里的生命周期也是不固定的，<code>&amp;self</code>在那一时间点上是什么生命周期，<code>call</code>就也要是什么生命周期。</p>
+</code></pre>
+<p>我们究竟应该怎么表示<code>F</code>的trait边界里的生命周期呢？这里需要一个生命周期，但是在我们进入<code>call</code>函数之前我们都不知道生命周期的名字！而且，那里的生命周期也是不固定的，<code>call</code> 可以和有<em>任何</em>生命周期的 <code>&amp;self</code> 一起使用。</p>
 <p>这里我们需要借助高阶trait边界（HRTB, Higher-Rank Trait Bounds）的神奇力量了。我们去掉语法糖之后的代码应该是这样的：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>where for&lt;'a&gt; F: Fn(&amp;'a (u8, u16)) -&gt; &amp;'a u8,
-<span class="boring">}
-</span></code></pre></pre>
-<p>（其中<code>Fn(a, b, c） -&gt; d</code>本身就是不确定的<code>Fn</code> trait的语法糖）</p>
-<p><code>for&lt;'a&gt;</code>可以读作“对于<code>'a</code>的所有可能选择”，基本上表示一个无限的列表，包含所有<code>F</code>需要满足的trait边界。不过别紧张，除了<code>Fn</code> trait之外我们很少会遇到需要HRTB的场景，而且即使遇到了我们还有一个神奇的语法糖相助。</p>
+<pre><code class="language-rust ignore">where for&lt;'a&gt; F: Fn(&amp;'a (u8, u16)) -&gt; &amp;'a u8,
+</code></pre>
+<p>（其中<code>Fn(a, b, c） -&gt; d</code>本身就是不文档的<em>真实的</em> <code>Fn</code> trait的语法糖）</p>
+<p><code>for&lt;'a&gt;</code>可以读作“对于<code>'a</code>的所有可能选择”，基本上表示一个<em>无限的列表</em>，包含所有<code>F</code>需要满足的trait边界。不过别紧张，除了<code>Fn</code> trait之外我们很少会遇到需要HRTB的场景，而且即使遇到了我们还有一个神奇的语法糖相助。</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/subtyping.html">https://doc.rust-lang.org/nomicon/subtyping.html</a></p>
 <h1><a class="header" href="#子类型和变性" id="子类型和变性">子类型和变性</a></h1>
 <p>子类型是类型之间的一种关系，可以让静态类型语言更加地灵活自由。</p>
-<p>理解这一概念最简单的方法就是参考一些支持继承特性的语言。比如说一个Animal类型有一个<code>eat()</code>方法，Cat类型继承了Animal并且添加了一个<code>meow()</code>方法。如果没有子类型机制，那么要写一个<code>feed(Animal)</code>函数，我们就不能给它传递Cat类型的参数，因为Cat并不是一个Animal。但是把Cat传递给需要Animal类型的地方似乎非常的合理。毕竟，Cat就是一个Animal外加一些自己的特性。这些特性完全可以被忽略，不应该妨碍我们在这里使用它！</p>
-<p>这就是子类型机制允许我们做的事情。因为Cat是一个Animal外加一些特性，我们就可以说Cat是Animal的子类型。任何需要某种类型的地方，我们都可以传递一个那种类型的子类型。很好!虽然实际情况会稍微复杂和微妙一点，但这种基本的理解足够你应对99%的应用场景了。我们在本章的后面会说明剩下的1%是什么。</p>
-<p>尽管Rust没有结构体继承的概念，它却有子类型机制。在Rust中，子类型是针对生命周期存在的。生命周期是代码的作用域，所以我们可以根据它们相互包含的关系判断他们的继承关系。</p>
-<p>生命周期的子类型指的是：如果<code>'big: 'small</code>（big包含small，或者big比small长寿），那么<code>'big</code>就是<code>'small</code>的子类型。这一点很容易弄错，因为它和我们的直觉是相反的：大的范围是小的范围的子类型。不过如果你对比一下我们举的Animal的例子就清楚了：Cat是一个Animal外加一些独有的东西，而<code>'big</code>是<code>'small</code>外加一些独有的东西。</p>
-<p>换一个角度想，如果需要一个在<code>'small</code>内有效的引用，实际指的是至少在<code>'small</code>中有效的引用。我们并不在乎生命周期是不是完全的一致。从这点上来说，永久生命周期<code>'static</code>是所有生命周期的子类型。</p>
-<p>高阶生命周期也是所有具体生命周期的子类型。这是因为一个随意变化的生命周期比特定的一个生命周期更通用。</p>
-<p>(将生命周期类型化是一个过于自由的设计，以至于一些人并不赞同它。但是，把生命周期看做一种类型，这确实简化了我们的分析。)</p>
-<p>当然你不能写一个接收<code>'a</code>类型的值的函数！生命周期只是别的类型的一部分，所以我们需要一些办法来处理它。这里，就要涉及到变性。</p>
-<h2><a class="header" href="#变性" id="变性">变性</a></h2>
-<p>变性显得有一点复杂。</p>
-<p>变性是类型构造函数与它的参数相关的一个属性。Rust中的类型构造函数是一个带有无界参数的通用类型。比如，<code>Vec</code>是一个构造函数，它的参数是<code>T</code>，返回值是<code>vec&lt;T&gt;</code>。<code>&amp;</code>和<code>&amp;mut</code>也是构造函数，它们有两个类型：一个生命周期，和一个引用指向的类型。</p>
-<p>构造函数F的变性表示了它的输入的子类型如何影响它输出的子类型。Rust中有三种变性：</p>
-<ul>
-<li>如果当<code>T</code>是<code>U</code>的子类型时，<code>F&lt;T&gt;</code>也是<code>F&lt;U&gt;</code>的子类型，则F对于<code>T</code>是<em>协变</em>的</li>
-<li>如果当<code>T</code>是<code>U</code>的子类型时，<code>F&lt;U&gt;</code>是<code>F&lt;T&gt;</code>的子类型，则F对于<code>T</code>是<em>逆变</em>的</li>
-<li>其他情况（即子类型之间没有关系），则F对于<code>T</code>是<em>不变</em>的</li>
-</ul>
-<p>注意，在Rust中协变性远比逆变性要普遍和重要。逆变性的存在几乎可以忽略。</p>
-<p>一些重要的变性（下文会详细描述）：</p>
-<ul>
-<li><code>&amp;'a T</code>对于<code>'a</code>和<code>T</code>是协变的</li>
-<li><code>&amp;'a mut T</code>对于<code>'a</code>是协变的，对于<code>T</code>是不变的</li>
-<li><code>fn(T) -&gt; U</code>对于<code>T</code>是逆变的，对于<code>U</code>是协变的</li>
-<li><code>Box</code>，<code>Vec</code>以及所有的集合类对于它们保存的类型都是协变的</li>
-<li><code>UnsafeCell&lt;T&gt;</code>，<code>Cell&lt;T&gt;</code>,<code>RefCell&lt;T&gt;</code>,<code>Mutex&lt;T&gt;</code>和其他的内部可变类型对于<code>T</code>都是不变的</li>
-</ul>
-<p>我们举几个例子说明这些变性为什么是正确且必要的。</p>
-<p>在介绍子类型的时候，其实已经包括了为什么<code>&amp;'a T</code>对<code>'a</code>是协变的。当需要一个较短的生命周期时，我们需要能够传递一个更长的生命周期。</p>
-<p>类似的理由也可以解释为什么它对于<code>T</code>是协变的：给一个要求<code>&amp;&amp;'a str</code>的地方传递<code>&amp;&amp;'static T</code>是很合理的。这种间接的引用并不影响对生命周期长度的要求。</p>
-<p>但是同样的逻辑并不适用于<code>&amp;mut</code>。下面的代码演示了为什么<code>&amp;mut</code>对于T是不变的：</p>
-<pre><pre class="playground"><code class="language-rust">fn overwrite&lt;T: Copy&gt;(intput: &amp;mut T, new: &amp;mut T) {
-    *input = *new;
+<p>Rust中的子类型与其他语言中的子类型有些不同。这使得很难给出简单的例子，这是一个问题，因为子类型，尤其是变性，已经很难正确理解。在这种情况下，即使是编译器编写者也经常将其弄乱。</p>
+<p>为了使事情简单，本节将考虑对Rust语言的一个小扩展，它添加了新的更简单的子类型关系。在这个更简单的系统下建立了概念和问题之后，我们将把它与Rust中子类型的实际发生方式联系起来。</p>
+<p>因此，这是我们的简单扩展，<em>Objective Rust</em>，具有三种新类型：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait Animal {
+    fn snuggle(&amp;self);
+    fn eat(&amp;mut self);
+}
+
+trait Cat: Animal {
+    fn meow(&amp;self);
+}
+
+trait Dog: Animal {
+    fn bark(&amp;self);
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>但是，与普通trait不同，我们可以像结构一样将它们用作具体的有大小的类型。</p>
+<p>现在，假设我们有一个非常简单的函数，该函数采用动物，如下所示：</p>
+<pre><code class="language-rust ignore">fn love(pet: Animal) {
+    pet.snuggle();
+}
+</code></pre>
+<p>默认情况下，静态类型必须<em>完全</em>匹配才能编译程序。 因此，此代码将无法编译：</p>
+<pre><code class="language-rust ignore">let mr_snuggles: Cat = ...;
+love(mr_snuggles);         // ERROR: expected Animal, found Cat
+</code></pre>
+<p>mr_snuggles 是 Cat，而猫 Cat 不是<em>确切</em>动物，所以我们不能爱它！😿</p>
+<p>这很烦人，因为猫<em>是</em>动物。它们支持动物支持的每项操作，因此从直觉上来说，<code>love</code> 应该不在乎我们是否将其传递给 <code>Cat</code>。我们应该能够<strong>忘记</strong> <code>Cat</code> 的非动物部分，因为它们不需要。</p>
+<p>这正是<em>子类型</em>旨在解决的问题。因为猫是动物，<strong>甚至更多</strong>，所以我们说猫是动物的<em>子类型</em>（因为猫是所有动物的<em>子集</em>）。等效地，我们说动物是猫的<em>超类型</em>。使用子类型，我们可以通过一个简单的规则来调整我们过于严格的静态类型系统：在任何期望为 <code>T</code> 的值的地方，我们也将接受 <code>T</code> 子类型的值。</p>
+<p>或更具体地讲：只要是动物可行，猫或狗也是可行的。</p>
+<p>正如我们将在本节的其余部分中看到的那样，子类型化比这要复杂得多和微妙得多，但是这个简单的规则是非常好的直觉。并且，除非你编写不安全的代码，否则编译器将自动为你处理所有极端情况。</p>
+<p>但这是Rustonomicon，我们正在编写不安全的代码，因此我们需要了解这些东西是如何工作的，以及如何使用它。</p>
+<p>核心问题是，天真地应用此规则将导致<em>喵喵叫的狗</em>。也就是说，我们可以说服某人狗实际上是猫。这完全破坏了我们的静态类型系统的结构，使其变得比无用更糟（并最终导致未定义的行为）。</p>
+<p>这是当我们在完全天真的情况下应用子类型化时发生的一个简单“查找并替换”的示例。</p>
+<pre><code class="language-rust ignore">fn evil_feeder(pet: &amp;mut Animal) {
+    let spike: Dog = ...;
+
+    // `pet` 是 Animal，Dog 是 Animal 的子类,
+    // 所以这是可行的，对吗..?
+    *pet = spike;
 }
 
 fn main() {
-    let mut forever_str: &amp;'static str = &quot;hello&quot;;
-    {
-        let string = String::from(&quot;world&quot;);
-        overwrite(&amp;mut forever_str, &amp;mut &amp;*string);
-    }
-    // 不好！在打印被释放的内存数据
-    println!(&quot;{}&quot;, forever_str);
+    let mut mr_snuggles: Cat = ...;
+    evil_feeder(&amp;mut mr_snuggles);  // 使用 Dog 替换 mr_snuggles
+    mr_snuggles.meow();             // 噢不，喵喵叫的狗！
 }
-</code></pre></pre>
-<p><code>overwrite</code>的签名显然是合法的，它接受两个相同类型的可变引用，然后用一个覆盖另外一个。</p>
-<p>但是，如果<code>&amp;mut T</code>对于T是协变的，<code>&amp;mut &amp;'static str</code>将会是<code>&amp;mut &amp;'a str</code>的子类型，这是因为<code>&amp;'static str</code>是<code>&amp;'a str</code>的子类型。这时<code>forever_str</code>的生命周期就缩减到和<code>string</code>一样短，<code>overwrite</code>也可以被正常调用。接下来<code>string</code>被释放，等到打印的时候<code>forever_str</code>实际指向了一块释放后的内存空间！所以<code>&amp;mut</code>必须是不变的。</p>
-<p>这是变性的一个基本原则：如果生命周期较短的内容有可能存储在生命周期更长的变量里，这时必须要求变性是不变的。</p>
-<p>更一般的解释是，子类型和变性可用的前提是我们可以安全地忘掉类型的细节。但对于可变引用，总有一些地方（被引用的原始值）记着类型的信息并且假设它们不会改变。如果我们改变了这些信息，原始值的位置就可能出现异常。</p>
-<p>但是，<code>&amp;'a mut T</code>对于<code>'a</code>却是协变的。<code>'a</code>和<code>T</code>最关键的区别是<code>'a</code>是引用自身的属性，而T则是引用借用的。如果改变了T的类型，T的原始值依然记着它的类型。可如果改变的是生命周期的类型，只有引用自己知道这一变化，因此这是安全的。换句话说，<code>&amp;'a mut T</code>拥有<code>'a</code>，但是仅仅借用T。</p>
-<p><code>Box</code>和<code>Vex</code>的情况就很有趣了，他们是协变的，可是你可以在里面存储值。Rust的类型系统允许它们比其他的类型更聪明。为了理解为什么拥有数据所有权的容器类型对于它们的内容是协变的，我们需要考虑两种可能发生子类型变化的方式：通过值和通过引用。</p>
-<p>如果子类型通过值发生变化，原有的记录类型信息的位置会被移除，也意味着容器再也不能使用原有的值了。所以我们也就不用担心有其他的地方记录着类型的信息。换言之，通过值使用子类型的特性会彻底销毁原有类型的信息。例如，这段代码可以编译并正常运行：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn get_box&lt;'a&gt;(str: &amp;'a str) -&gt; Box&lt;&amp;'a str&gt; {
-    // 字符串字面量是&amp;'static str类型，但是我们完全可以“忘掉”这一点，
-    // 就让调用者认为这个字符串的生命周期只有这么短
-    Box::new(&quot;hello&quot;)
-}
-<span class="boring">}
-</span></code></pre></pre>
-<p>如果子类型通过引用发生变化，那么容器类会以<code>&amp;mut Vec&lt;T&gt;</code>类型传递。可是<code>&amp;mut</code>对于它引用的值是不变的，所以<code>&amp;mut Vec&lt;T&gt;</code>对于<code>T</code>实际也是不变的。那么<code>Vec&lt;T&gt;</code>对于<code>T</code>协变这件事在引用的情况下就完全不重要了。</p>
-<p>不过，<code>Box</code>和<code>Vec</code>的协变性在不可变引用的情况下依然有用。所以你可以将<code>&amp;Vec&lt;&amp;'static str&gt;</code>传递给需要<code>&amp;Vec&lt;&amp;'a str&gt;</code>的地方。</p>
-<p>cell类型的不变性可以这样理解：对于cell来说<code>&amp;</code>就是<code>&amp;mut</code>，因为你可以通过<code>&amp;</code>储存值。所以cell必须是不变的，以避免生命周期缩短的问题。</p>
-<p><code>fn</code>是最怪异的，因为它具有混合变性，而且它也是唯一用到了逆变性的地方。下面的函数签名展示了为什么<code>fn(T) -&gt; U</code>对于T是逆变的：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// 'a来自父作用域
-fn foo(&amp;'a str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>这个签名表明函数可以接受任何生命周期不小于<code>'a</code>的<code>&amp;str</code>。如果函数对于<code>&amp;'a str</code>是协变的，那么这个函数</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foo(&amp;'static str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>就是它的子类型并且可以使用。但是，这个函数的要求其实更严格，它只能接受<code>&amp;'static str</code>，不能接受其他类型。给它传递一个<code>&amp;'a str</code>是错误的，因为我们不能假设传递给它的值会永远存在。所以，函数对于它的参数类型肯定不能使协变的。</p>
-<p>如果我们反过来应用逆变性，就万事大吉了！需要一个函数来处理永远存在的字符串，而我们提供了一个处理有限生命周期字符串的函数，这也是完全合理的。所以，</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foo(&amp;'a str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>可以被传递给需要</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foo(&amp;'static str) -&gt; usize;
-<span class="boring">}
-</span></code></pre></pre>
-<p>的地方。</p>
-<p>那<code>fn(T) -&gt; U</code>对于U怎么又是协变的了呢？看看下面这个函数签名：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// 'a来自父作用域
-fn foo(usize) -&gt; &amp;'a str;
-<span class="boring">}
-</span></code></pre></pre>
-<p>这个函数声明它将返回一个生命周期长于<code>'a</code>的引用。那么下面这个函数</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn foot(usize) -&gt; &amp;'static str;
-<span class="boring">}
-</span></code></pre></pre>
-<p>用在这里是完全可以的，因为它的的确确返回了一个生命周期长于<code>'a</code>的引用。所以函数对于它的返回值是协变的。</p>
-<p><code>*const</code>和<code>&amp;</code>有着完全一样的语义，所以变性也是一样的。<code>*mut</code>正相反，它可以解引用出一个<code>&amp;mut</code>，所以和cell一样，它也是不变的。</p>
-<p>以上规则都是针对标准库提供的类型，那么自己定义的类型又如何确定变性呢？简单点说，结构体会继承它的成员的变性。如果结构体<code>Foo</code>有一个成员<code>a</code>，它使用了结构体的泛型参数<code>A</code>，那么<code>Foo</code>对于<code>A</code>的变性就等于<code>a</code>对于<code>A</code>的变性。可如果<code>A</code>被用在了多个成员中：</p>
+</code></pre>
+<p>显然，我们需要比“查找并替换”更健壮的系统。该系统是 <em>变性（variance）</em>，它控制子类型应如何组成的一组规则。最重要的是，变性定义了应禁用子类型化的情况。</p>
+<p>但是在讨论变性之前，让我们快速看一下Rust中子类型的实际发生位置：<em>生命周期</em>！</p>
+<blockquote>
+<p>注意：生命周期的类型性是一个相当随意的构造，有些人不同意这种构造。
+但是，这简化了我们对生命周期和类型进行统一处理的分析。</p>
+</blockquote>
+<p>生命周期只是代码区域，区域可以通过<em>包含（contains）</em>（有效期（outlives））关系进行部分排序。生命周期的子类型指的是：如果<code>'big: 'small</code>（big包含small，或者big比small长寿），那么<code>'big</code>就是<code>'small</code>的子类型。这一点很容易弄错，因为它和我们的直觉是相反的：大的范围是小的范围的子类型。不过如果你对比一下我们举的Animal的例子就清楚了：<em>Cat</em>是一个Animal，外加一些独有的东西，正如<code>'big</code>是<code>'small</code>，外加一些独有的东西。</p>
+<p>换一个角度想，如果需要一个在<code>'small</code>内有效的引用，实际指的是<em>至少</em>在<code>'small</code>中有效的引用。我们并不在乎生命周期是不是完全的一致。
+因此，让我们<strong>忘记</strong>某些东西在<code>'big</code>中有效地引用，而只记得在<code>'small</code>中有效地引用，这应该没问题。</p>
+<p>生命周期的喵喵叫的狗问题将使我们能够在寿命更长的地方存储一个短暂的引用，创建一个悬垂的引用并让在释放后使用。</p>
+<p>值得注意的是，永久生命周期 <code>'static</code> 是每个生命周期的子类型，因为根据定义，它比所有东西都寿命长。在后面的示例中，我们将使用这种关系以使它们尽可能简单。</p>
+<p>话虽如此，我们仍然不知道如何真正<em>使用</em>生命周期的子类型，因为从来没有类型<code>'a</code>。生命周期仅作为某些较大类型的一部分出现，例如<code>&amp;'a u32</code>或<code>IterMut &lt;'a，u32&gt;</code>。 要应用生命周期子类型化，我们需要知道如何构建子类型化。 再一次，我们需要<em>变性</em>。</p>
+<h2><a class="header" href="#变性" id="变性">变性</a></h2>
+<p>变性显得有一点复杂。</p>
+<p>变性是<em>类型构造函数</em>与它的参数相关的一个属性。Rust中的类型构造函数是任意带有无界参数的通用类型。比如，<code>Vec</code>是一个构造函数，它的参数是类型 <code>T</code>，返回值是<code>vec&lt;T&gt;</code>。<code>&amp;</code>和<code>&amp;mut</code>也是构造函数，它们有两个类型：一个生命周期，和一个引用指向的类型。</p>
+<blockquote>
+<p>注意：为了方便起见，我们通常将<code>F &lt;T&gt;</code>称为类型构造函数，以便我们可以轻松地讨论<code>T</code>。希望这在上下文中很清楚。</p>
+</blockquote>
+<p>构造函数F的<em>变性</em>表示了它的输入的子类型如何影响它输出的子类型。给定两个类型 <code>Sub</code> 和 <code>Super</code>，其中，<code>Sub</code> 是 <code>Super</code> 的子类型，Rust中有三种变性：</p>
 <ul>
-<li>如果所有用到A的成员都是协变的，那么Foo对于A就是协变的</li>
-<li>如果所有用到A的成员都是逆变的，那么Foo对于A也是逆变的</li>
-<li>其他的情况，Foo对于A是不变的</li>
+<li>如果<code>F&lt;Sub&gt;</code>是<code>F&lt;Super&gt;</code>的子类型，则<code>F</code>是<em>协变</em>的（子类型闯“穿过”）；</li>
+<li>如果<code>F&lt;Super&gt;</code>是<code>F&lt;Sub&gt;</code>的子类型，则<code>F</code>是<em>逆变</em>的（子类型“反转”）；</li>
+<li>其他情况（即子类型之间没有关系），则<code>F</code>是<em>不变</em>的。</li>
+</ul>
+<p>如果<code>F</code>具有多个类型参数，我们可以说单个变性，例如，<code>F &lt;T，U&gt;</code>在<code>T</code>上是协变的，而在<code>U</code>上是不变的。</p>
+<p>牢记协变从实际上是变性，这一点非常有用。几乎所有关于变性的考虑都是根据某事物是协变还是不变的。实际上，在Rust中，逆变是非常少见的，尽管实际上确实存在。</p>
+<p>以下是重要的变性表，本节的其余部分将专门解释：</p>
+<table><thead><tr><th></th><th></th><th align="center">'a</th><th align="center">T</th><th align="center">U</th></tr></thead><tbody>
+<tr><td>*</td><td><code>&amp;'a T</code></td><td align="center">协变</td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>&amp;'a mut T</code></td><td align="center">协变</td><td align="center">不变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>Box&lt;T&gt;</code></td><td align="center"></td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td></td><td><code>Vec&lt;T&gt;</code></td><td align="center"></td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>UnsafeCell&lt;T&gt;</code></td><td align="center"></td><td align="center">不变</td><td align="center"></td></tr>
+<tr><td></td><td><code>Cell&lt;T&gt;</code></td><td align="center"></td><td align="center">不变</td><td align="center"></td></tr>
+<tr><td>*</td><td><code>fn(T) -&gt; U</code></td><td align="center"></td><td align="center"><strong>逆</strong>变</td><td align="center">协变</td></tr>
+<tr><td></td><td><code>*const T</code></td><td align="center"></td><td align="center">协变</td><td align="center"></td></tr>
+<tr><td></td><td><code>*mut T</code></td><td align="center"></td><td align="center">不变</td><td align="center"></td></tr>
+</tbody></table>
+<p>带 * 的类型是我们将重点关注的类型，因为它们在某种意义上是“基本的”。可以通过与其他类似的方式来理解所有其他类型：</p>
+<ul>
+<li><code>Vec&lt;T&gt;</code> 以及所有其他拥有的指针和集合遵循与 <code>Box&lt;T&gt;</code> 相同的逻辑；</li>
+<li><code>Cell&lt;T&gt;</code> 以及其他所有的内部可变类型遵循与 <code>UnsafeCell&lt;T&gt;</code> 相同的逻辑；</li>
+<li><code>*const T</code> 遵循与 <code>&amp;T</code> 相同的逻辑；</li>
+<li><code>*mut T</code> 遵循 <code>&amp;mut T</code>（或者 <code>UnsafeCell&lt;T&gt;</code>） 的逻辑；</li>
+</ul>
+<blockquote>
+<p>注意：语言中逆变的<em>唯一</em>来源是函数的参数，这就是为什么它实际上在实践中并没有太大作用的原因。
+调用逆变涉及使用函数指针进行高阶编程，这些函数指针采用具有特定生命周期的引用
+（与通常的“任意生命周期”相对，后者进入较高级别的生命周期，与子类型无关）。</p>
+</blockquote>
+<p>好的，类型的理论已经够了！让我们尝试将变性的概念应用于Rust，并看一些示例。</p>
+<p>首先，让我们回顾一下喵喵叫的狗的例子：</p>
+<pre><code class="language-rust ignore">fn evil_feeder(pet: &amp;mut Animal) {
+    let spike: Dog = ...;
+
+    // `pet` is an Animal, and Dog is a subtype of Animal,
+    // so this should be fine, right..?
+    *pet = spike;
+}
+
+fn main() {
+    let mut mr_snuggles: Cat = ...;
+    evil_feeder(&amp;mut mr_snuggles);  // Replaces mr_snuggles with a Dog
+    mr_snuggles.meow();             // OH NO, MEOWING DOG!
+}
+</code></pre>
+<p>如果我们看一下变性表，就会发现 <code>&amp;mut T</code> 对 <code>T</code> 是<em>不变</em>。事实证明，这完全可以解决问题！因为不变，Cat是Animal的子类型这一事实无关紧要；<code>&amp;mut Cat</code>仍然不会是<code>&amp;mut Animal</code>的子类型。静态类型检查器将正确阻止我们将Cat传递给<code>evil_feeder</code>。</p>
+<p>子类型的合理性是基于这样的想法，即可以忘记不必要的细节。但是有了引用，总会有人记住那些细节：被引用的值。该值期望这些细节保持真实，并且如果违反其期望，则行为可能不正确。</p>
+<p>使<code>&amp;mut T</code>关于<code>T</code>协变的问题在于，<em>当我们不记得所有约束时</em>，它使我们能够修改原始值。因此，当他们确定自己还有 Cat 时，我们可以让他们有 Dog。</p>
+<p>建立了这个后，我们可以很容易地理解为什么 <code>&amp;T</code> 关于 <code>T</code> 协变<em>是</em>合理的：它不允许你修改值，而只能查看它。没有任何可变的方法，就没有办法让我们弄乱任何细节。我们还可以看到为什么<code>UnsafeCell</code>和所有其他内部可变性类型必须具有不变性：它们使<code>&amp;T</code>像<code>&amp;mut T</code>一样工作！</p>
+<p>现在，引用的生命周期是怎样的？为什么两种引用在它们的生命周期中都可以协变？好吧，这是一个两方面的论点：</p>
+<p>首先，基于生命周期的子类型化引用是<em>Rust中子类型化的整个重点</em>。我们拥有子类型化的唯一原因是，我们可以在预期寿命短的地方传递寿命长的东西。这样更好地工作！</p>
+<p>其次，更重要的是，生命周期只是引用本身的一部分。引用对象的类型是共享知识，这就是为什么仅在一个地方（引用）调整该类型会导致问题的原因。但是，如果你在将引用交给某人是将引用的生命周期缩减，则该生命周期信息不会以任何方式共享。现在有两个具有独立生命周期的独立引用，使用另一种方法无法破坏原始引用的生命周期。</p>
+<p>或者更确切地说，弄乱某人生命周期的唯一方法是构建一只喵喵叫的狗。但是，一旦你尝试构建一只喵喵狗，就应该将生命周期固定为不变类型，以防止生命周期缩短。为了更好地理解这一点，让我们将猫叫问题移植到真正的Rust上。</p>
+<p>在喵喵叫的狗问题中，我们采用子类型（Cat），将其转换为超类型（Animal），然后使用该事实将满足父类型但不满足子类型（Dog）约束的值覆盖子类型。</p>
+<p>因此，对于生命周期，我们希望将其寿命长的东西转换成短寿命的东西，然后用它来写一些寿命不长的东西到期望寿命长的地方。</p>
+<p>也就是：</p>
+<pre><code class="language-rust ignore">fn evil_feeder&lt;T&gt;(input: &amp;mut T, val: T) {
+    *input = val;
+}
+
+fn main() {
+    let mut mr_snuggles: &amp;'static str = &quot;meow! :3&quot;;  // mr. snuggles 一直存活!!
+    {
+        let spike = String::from(&quot;bark! &gt;:V&quot;);
+        let spike_str: &amp;str = &amp;spike;                // 只在代码块内存活
+        evil_feeder(&amp;mut mr_snuggles, spike_str);    // EVIL!
+    }
+    println!(&quot;{}&quot;, mr_snuggles);                     // 释放后使用?
+}
+</code></pre>
+<p>当我们运行这个程序时，我们会得到什么？</p>
+<pre><code class="language-text">error[E0597]: `spike` does not live long enough
+  --&gt; src/main.rs:9:32
+   |
+9  |         let spike_str: &amp;str = &amp;spike;
+   |                                ^^^^^ borrowed value does not live long enough
+10 |         evil_feeder(&amp;mut mr_snuggles, spike_str);
+11 |     }
+   |     - borrowed value only lives until here
+   |
+   = note: borrowed value must be valid for the static lifetime...
+</code></pre>
+<p>好，它无法编译！让我们详细分解这里发生的事情。</p>
+<p>首先让我们看一下新的<code>evil_feeder</code>函数：</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn evil_feeder&lt;T&gt;(input: &amp;mut T, val: T) {
+    *input = val;
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>它所做的只是获取一个可变的引用和一个值，并用它覆盖引用对象。此函数重要的是它创建了一个类型相等约束。它清楚地在签名中指出了所指对象和值必须是<em>完全相同</em>的类型。</p>
+<p>同时，在调用方中，我们传递 <code>&amp;mut &amp;'static str</code> 和 <code>&amp;'spike_str str</code>。</p>
+<p>因为<code>&amp;mut T</code>相对于<code>T</code>是不变的，所以编译器得出结论，它不能对第一个参数应用任何子类型，因此<code>T</code>必须精确地是<code>&amp;'static str</code>。</p>
+<p>另一个参数只是一个<code>&amp;'a str</code>，它对于<code>a</code><em>是</em>协变的。因此，编译器采用了一个约束：<code>&amp;'spike_str str</code>必须是<code>&amp;'static str</code>（包括）的子类型，这反过来意味着<code>'spike_str</code>必须是<code>'static</code>（包括）的子类型。 这就是说，<code>'spike_str</code>必须包含<code>'static</code>。但是只有一个东西包含<code>'static</code>──<code>'static</code>本身！</p>
+<p>这就是为什么当我们尝试将<code>&amp;spike</code>分配给<code>spike_str</code>时出现错误的原因。编译器进行了倒退的工作，以得出<code>spike_str</code>必须永远存在的结论，而<code>&amp;spike</code>不能存活那么久。</p>
+<p>因此，即使引用在其整个生命周期中都是协变的，但只要将它们置于上下文中，它们都可以“继承”不变性，这可能会对此造成不良影响。在这种情况下，只要将引用放入<code>&amp;mut T</code>中，我们就继承了不变性。</p>
+<p>事实证明，Box（以及Vec，Hashmap等）为什么可以协变的论点与为什么生命周期可以协变的论点非常相似：只要你尝试将它们塞入诸如可变引用之类的东西，它们继承不变性，并且可以防止你做任何不好的事情。</p>
+<p>但是，Box使我们更容易专注于引用的按值方面，这部分我们通常是掩盖。</p>
+<p>与许多语言允许随时对值进行自由别名不同，Rust有一个非常严格的规则：如果你允许对值进行可变或移动，则可以保证你可以唯一访问它。</p>
+<p>考虑以下代码：</p>
+<pre><code class="language-rust ignore">let mr_snuggles: Box&lt;Cat&gt; = ..;
+let spike: Box&lt;Dog&gt; = ..;
+
+let mut pet: Box&lt;Animal&gt;;
+pet = mr_snuggles;
+pet = spike;
+</code></pre>
+<p>我们已经忘记了<code>mr_snuggles</code>是一只 Cat，或者我们用 Dog 将它覆盖了，这根本没有问题，因为一旦我们将 mr_snuggles 移到只知道他是Animal的变量上，<strong>我们摧毁了宇宙中唯一记得它是 Cat 的东西</strong>！</p>
+<p>与关于不可变引用由于它们不允许你进行任何更改而听起来是协变的说法相反，拥有的值可以是协变量的，因为它们使你改变<em>一切</em>。旧位置和新位置之间没有连接。应用按值子类型化是知识破坏的不可逆转的行为，并且没有任何关于过去情况的记忆，任何人都不会被诱使对这些旧信息采取行动！</p>
+<p>只剩下一件事要解释了：函数指针。</p>
+<p>要了解为什么<code>fn(T) -&gt; U</code>应该相对于<code>U</code>是协变的，请考虑以下签名：</p>
+<pre><code class="language-rust ignore">fn get_animal() -&gt; Animal;
+</code></pre>
+<p>此函数声称可产生 Animal。 因此，为函数提供以下签名是完全有效的：</p>
+<pre><code class="language-rust ignore">fn get_animal() -&gt; Cat;
+</code></pre>
+<p>毕竟，Cat是Animal，因此始终生产Cat是生产Animal的完全有效的方法。或将其与真实的Rust相关联：如果我们需要一个函数来产生可以生存的<code>'short</code>的东西，那么它可以产生可以生存<code>'long</code>的东西。我们不在乎，我们可以忘记这一事实。</p>
+<p>但是，相同的逻辑不适用于<em>参数变量</em>。 考虑尝试满足：</p>
+<pre><code class="language-rust ignore">fn handle_animal(Animal);
+</code></pre>
+<p>使用</p>
+<pre><code class="language-rust ignore">fn handle_animal(Cat);
+</code></pre>
+<p>第一个函数可以接受 Dogs，但是第二个函数绝对不能。协变性在这里不起作用。但是，如果我们将其翻转，它实际上<em>确实</em>有效！如果我们需要一个可以处理Cats的函数，那么一个可以处理<em>任何</em> Animal 的函数肯定可以正常工作。或者将其与真正的Rust关联起来：如果我们需要一个能够处理至少<code>'long</code>存活期的函数，那么它能够处理至少<code>'short</code>生存期的函数。</p>
+<p>这就是为什么与语言中的任何其他不同的是，函数类型对于参数是逆变的。</p>
+<p>至此，对于标准库提供的类型来说，这一切都很好，那么<em>自己</em>定义的类型又如何确定变性呢？简单点说，结构体会继承它的成员的变性。如果结构体<code>MyType</code>有一个成员<code>a</code>，它使用了结构体的泛型参数<code>A</code>，那么<code>MyType</code>对于<code>A</code>的变性就等于<code>a</code>对于<code>A</code>的变性。</p>
+<p>可如果<code>A</code>被用在了多个成员中：</p>
+<ul>
+<li>如果所有用到<code>A</code>的成员都是协变的，那么MyType对于<code>A</code>就是协变的</li>
+<li>如果所有用到<code>A</code>的成员都是逆变的，那么MyType对于<code>A</code>也是逆变的</li>
+<li>其他的情况，MyType对于<code>A</code>是不变的</li>
 </ul>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use std::cell::Cell;
 
-struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
+struct MyType&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
     a: &amp;'a A,     // 对于'a和A协变
     b: &amp;'b mut B, // 对于'b协变，对于B不变
 
@@ -1253,81 +1415,84 @@ struct Foo&lt;'a, 'b, A: 'a, B: 'b, C, D, E, F, G, H, In, Out, Mixed&gt; {
 </span></code></pre></pre>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/dropck.html">https://doc.rust-lang.org/nomicon/dropck.html</a></p>
 <h1><a class="header" href="#drop检查" id="drop检查">Drop检查</a></h1>
-<p>我们已经知道生命周期给我们提供了一些很简单的规则，以保证我们永远不会读取悬垂引用。但是，到目前为止我们提到生命周期的长短时，指的都是非严格的关系。也就是说，当我们写<code>'a: 'b</code>的时候，<code>'a</code>其实也可以和<code>'b</code>一样长。乍一看，这一点没什么意义。本来也不会有两个东西被同时销毁的，不是吗？我们去掉下面的<code>let</code>表达式的语法糖看看：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let x;
+<p>我们已经知道生命周期给我们提供了一些很简单的规则，以保证我们永远不会读取悬垂引用。但是，到目前为止我们只以包容性（inclusive）的方式与 <em>存活</em>（outlives）关系进行交互。也就是说，当我们写<code>'a: 'b</code>的时候，<code>'a</code>其实也可以和<code>'b</code> <em>一样</em> 长。乍一看，这一点没什么意义。本来也不会有两个东西被同时销毁的，不是吗？我们去掉下面的<code>let</code>表达式的语法糖看看：</p>
+<pre><code class="language-rust ignore">let x;
 let y;
-<span class="boring">}
-</span></code></pre></pre>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>{
+</code></pre>
+<pre><code class="language-rust ignore">{
     let x;
     {
         let y;
     }
 }
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <p>每一个都创建了自己的作用域，可以很清楚地看出来一个在另一个之前被销毁。但是，如果是下面这样的呢？</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let (x, y) = (vec![], vec![]);
-<span class="boring">}
-</span></code></pre></pre>
-<p>有哪一个比另一个存活更长吗？答案是，没有，没有哪个严格地比另一个长。当然，x和y中肯定有一个比另一个先销毁，但是销毁的顺序是不确定的。并非只有元组是这样，复合结构体从Rust 1.0开始就不会保证它们的销毁顺序。</p>
-<p>我们已经清楚了元组和结构体这种内置复合类型的行为了。那么Vec这样的类型又是什么样的呢？Vec必须通过标准库代码手动销毁它的元素。通常来说，所有实现了Drop的类型在临死前都有一次回光返照的机会。所以，对于实现了Drop的类型，编译器没有充分的理由判断它们的内容的实际销毁顺序。</p>
+<p>存在一些更复杂的情况，使得无法使用作用域进行去糖化，但是仍然定义了顺序──变量以其定义的相反顺序校销毁，结构和元组的字段以其定义的顺序反向销毁。<a href="https://github.com/rust-lang/rfcs/blob/master/text/1857-stabilize-drop-order.md">RFC 1857</a> 中有一些有关删除顺序的更多详细信息。</p>
+<p>让我们看以下例子：</p>
+<pre><code class="language-rust ignore">let tuple = (vec![], vec![]);
+</code></pre>
+<p>左边向量先被销毁。但这是否意味着右边的向量在借用检查器的眼中严格地存活？这个问题的答案是 <em>否</em>。借用检查器可以单独跟踪元组的字段，但是对向量元素（通过纯库代码手动删除，借用检查器无法理解这些代码），它仍然无法确定一个元素比另一个元素活得更久，</p>
 <p>可是我们为什么要关心这个？因为如果系统不够小心，就可能搞出来悬垂指针。考虑下面这个简单的程序：</p>
 <pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
 
+struct World&lt;'a&gt; {
+    inspector: Option&lt;Inspector&lt;'a&gt;&gt;,
+    days: Box&lt;u8&gt;,
+}
+
 fn main() {
-    let (inspector, days);
-    days = Box::new(1);
-    inspector = Inspector(&amp;days);
+    let mut world = World {
+        inspector: None,
+        days: Box::new(1),
+    };
+    world.inspector = Some(Inspector(&amp;world.days));
 }
 </code></pre></pre>
 <p>这段程序是正确且可以正常编译的。<code>days</code>并不严格地比<code>inspector</code>存活得更长，但这没什么关系。只要<code>inspector</code>还存活着，<code>days</code>就一定也活着。</p>
 <p>可如果我们添加一个析构函数，程序就不能编译了！</p>
-<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8);
+<pre><pre class="playground"><code class="language-rust compile_fail">struct Inspector&lt;'a&gt;(&amp;'a u8);
 
 impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
-        println!(&quot;再过{}天我就退休了！&quot;, self.0);
+        println!(&quot;I was only {} days from retirement!&quot;, self.0);
     }
 }
 
+struct World&lt;'a&gt; {
+    inspector: Option&lt;Inspector&lt;'a&gt;&gt;,
+    days: Box&lt;u8&gt;,
+}
+
 fn main() {
-    let (inspector, days);
-    days = Box::new(1);
-    inspector = Inspector(&amp;days);
-    // 如果days碰巧先被销毁了
-    // 那么当销毁Inspector的时候，它会读取被释放的内存
+    let mut world = World {
+        inspector: None,
+        days: Box::new(1),
+    };
+    world.inspector = Some(Inspector(&amp;world.days));
+    // `days` 刚好被先销毁了
+    // 当 Inspector 被销毁时，它会尝试读取被释放的内存！
 }
 </code></pre></pre>
-<pre><code>error: `days` does not live long enough
-  --&gt; &lt;anon&gt;:15:1
+<pre><code class="language-text">error[E0597]: `world.days` does not live long enough
+  --&gt; src/main.rs:19:38
    |
-12 |     inspector = Inspector(&amp;days);
-   |                            ---- borrow occurs here
+19 |     world.inspector = Some(Inspector(&amp;world.days));
+   |                                      ^^^^^^^^^^^ borrowed value does not live long enough
 ...
-15 | }
-   | ^ `days` dropped here while still borrowed
-   |
-   = note: values in a scope are dropped in the opposite order they are created
-
-error: aborting due to previous error
+22 | }
+   | -
+   | |
+   | `world.days` dropped here while still borrowed
+   | borrow might be used here, when `world` is dropped and runs the destructor for type `World&lt;'_&gt;`
 </code></pre>
+<p>你可以尝试更改字段的顺序或使用元组代替结构体，但仍然无法编译。</p>
 <p>实现<code>Drop</code>使得<code>Inspector</code>可以在销毁前执行任意的代码。一些通常认为和它生命周期一样长的类型可能实际上比它先销毁，而这会有潜在的问题。</p>
-<p>有意思的是，只有泛型需要考虑这个问题。如果不是泛型的话，那么唯一可用的生命周期就是<code>'static</code>，而它确确实实会永远存在。这也就是这一问题被称之为“安全泛型销毁”的原因。安全泛型销毁是通过drop检查器执行的。我们还未涉及到drop检查器判断类型是否可用的细节，但其实我们之前已经讨论了这个问题的最主要规则：</p>
+<p>有意思的是，只有泛型需要考虑这个问题。如果不是泛型的话，那么唯一可用的生命周期就是<code>'static</code>，而它确确实实会 <em>永远</em> 存在。这也就是这一问题被称之为“<em>安全泛型销毁</em>”的原因。安全泛型销毁是通过 <em>销毁检查器</em> 强制执行的。我们还未涉及到销毁检查器判断类型是否可用的细节，但其实我们之前已经讨论了这个问题的最主要规则：</p>
 <p><strong>一个安全地实现Drop的类型，它的泛型参数生命周期必须严格地长于它本身</strong></p>
 <p>遵守这一规则（大部分情况下）是满足借用检查器要求的必要条件，同时是满足安全要求的充分非必要条件。也就是说，如果类型遵守上述规则，它就一定可以安全地drop。</p>
-<p>之所以并不总是满足借用检查器要求的必要条件，是因为有时类型借用了数据但是在Drop的实现里没有访问这些数据。</p>
+<p>之所以并不总是满足借用检查器要求的必要条件，是因为有时类型借用了数据但是在Drop的实现里没有访问这些数据，或者是因为我们知道特定的销毁顺序，并且即使借用检查器不知道，借用的数据仍然很好。</p>
 <p>例如，上面的<code>Inspector</code>的这一变体就不会访问借用的数据：</p>
-<pre><pre class="playground"><code class="language-rust">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
+<pre><pre class="playground"><code class="language-rust compile_fail">struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
 
 impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
@@ -1335,54 +1500,77 @@ impl&lt;'a&gt; Drop for Inspector&lt;'a&gt; {
     }
 }
 
+struct World&lt;'a&gt; {
+    inspector: Option&lt;Inspector&lt;'a&gt;&gt;,
+    days: Box&lt;u8&gt;,
+}
+
 fn main() {
-    let (inspector, days);
-    days = Box::nex(1);
-    inspector = Inspector(&amp;days, &quot;gadget);
-    // 假设days碰巧先被销毁。
-    // 可当Inspector被销毁时，它的析构函数也不会访问借用的days。
+    let mut world = World {
+        inspector: None,
+        days: Box::new(1),
+    };
+    world.inspector = Some(Inspector(&amp;world.days, &quot;gadget&quot;));
+    // `days` 刚好被先销毁了
+    // 即使 Inspector 被销毁，它的析构器也不会读取被引用的 `days`。
 }
 </code></pre></pre>
 <p>同样，这个变体也不会访问借用的数据：</p>
-<pre><pre class="playground"><code class="language-rust">use std::fmt;
+<pre><pre class="playground"><code class="language-rust compile_fail">struct Inspector&lt;T&gt;(T, &amp;'static str);
 
-struct Inspector&lt;T: fmt::Display&gt;(T, &amp;'static str);
-
-impl&lt;T: fmt::Display&gt; Drop for Inspector&lt;T&gt; {
+impl&lt;T&gt; Drop for Inspector&lt;T&gt; {
     fn drop(&amp;mut self) {
         println!(&quot;Inspector(_, {}) knows when *not* to inspect.&quot;, self.1);
     }
 }
 
+struct World&lt;T&gt; {
+    inspector: Option&lt;Inspector&lt;T&gt;&gt;,
+    days: Box&lt;u8&gt;,
+}
+
 fn main() {
-    let (inspector, days): (Inspector&lt;&amp;u8&gt;, Box&lt;u8&gt;);
-    days = Box::new(1);
-    inspector = Inspector(&amp;days, &quot;gadget&quot;);
-    // 假设days碰巧先被销毁。
-    // 可当Inspector被销毁时，它的析构函数也不会访问借用的days。
+    let mut world = World {
+        inspector: None,
+        days: Box::new(1),
+    };
+    world.inspector = Some(Inspector(&amp;world.days, &quot;gadget&quot;));
+    // `days` 刚好被先销毁了
+    // 即使 Inspector 被销毁，它的析构器也不会读取被引用的 `days`。
 }
 </code></pre></pre>
-<p>但是，借用检查器在分析<code>main</code>函数的时候会拒绝上面两段代码，并指出<code>days</code>存活得不够长。</p>
+<p>但是，借用检查器在分析<code>main</code>函数的时候，上面两段代码 <em>都</em> 会被拒绝，并指出<code>days</code>存活得不够长。</p>
 <p>这是因为，当借用检查分析<code>main</code>函数的时候，它并不知道每个<code>Inspector</code>的<code>Drop</code>实现的内部细节。它只知道inspector的析构函数有访问借用数据的可能。</p>
 <p>因此，drop检查器强制要求一个值借用的所有数据的生命周期必须严格长于值本身。</p>
 <h2><a class="header" href="#留一个后门" id="留一个后门">留一个后门</a></h2>
 <p>上面的类型检查的规则在未来有可能会松动。</p>
 <p>当前的分析方法是很保守甚至苛刻的，它强制要求一个值借用的数据必须比值本身长寿，以保证绝对的安全。</p>
 <p>未来的版本中，分析过程会更加精细，以减少安全的代码被拒绝的情况。比如上面的两个<code>Inspector</code>，它们知道在销毁过程中不应该被检查。</p>
-<p>同时，有一个还未稳定的属性可以用来（非安全地）声明类型的析构函数保证不会访问过期的数据，即使类型的签名显示有这种可能存在。</p>
-<p>这个属性是<code>my_dangle</code>，在<a href="https://github.com/rust-lang/rfcs/blob/master/text/1327-dropck-param-eyepatch.md">RFC 1327</a>中被引入。我们可以这样将其放在上面的<code>Inspector</code>例子里：</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
+<p>同时，有一个还未稳定的属性可以用来（非安全地）声明类型的析构函数 <em>保证</em> 不会访问过期的数据，即使类型的签名显示有这种可能存在。</p>
+<p>这个属性是<code>may_dangle</code>，在<a href="https://github.com/rust-lang/rfcs/blob/master/text/1327-dropck-param-eyepatch.md">RFC 1327</a>中被引入。我们可以这样将其放在上面的<code>Inspector</code>例子里：</p>
+<pre><pre class="playground"><code class="language-rust">#![feature(dropck_eyepatch)]
+
+struct Inspector&lt;'a&gt;(&amp;'a u8, &amp;'static str);
 
 unsafe impl&lt;#[may_dangle] 'a&gt; Drop for Inspector&lt;'a&gt; {
     fn drop(&amp;mut self) {
         println!(&quot;Inspector(_, {}) knows when *not* to inspect.&quot;, self.1);
     }
 }
-<span class="boring">}
-</span></code></pre></pre>
+
+struct World&lt;'a&gt; {
+    days: Box&lt;u8&gt;,
+    inspector: Option&lt;Inspector&lt;'a&gt;&gt;,
+}
+
+fn main() {
+    let mut world = World {
+        inspector: None,
+        days: Box::new(1),
+    };
+    world.inspector = Some(Inspector(&amp;world.days, &quot;gatget&quot;));
+}
+</code></pre></pre>
 <p>使用这个属性要求<code>Drop</code>的实现被标为<code>unsafe</code>，因为编译器将不会检查有没有过期的数据（比如<code>self.0</code>）被访问。</p>
 <p>这个属性可以赋给任意数量的生命周期和类型参数。下面这个例子里，我们声明我们不会访问有生命周期<code>'b</code>的引用背后的数据，而类型<code>T</code>也只会被用来转移或销毁。但是我们没有为<code>'a</code>和<code>U</code>添加属性，因为我们确实会用到这个生命周期和类型：</p>
 <pre><pre class="playground"><code class="language-rust">
@@ -1440,12 +1628,14 @@ impl&lt;T: fmt::Display&gt; Drop for Inspector&lt;T&gt; {
 </span></code></pre></pre>
 <p>当然，这些访问可以进一步地被隐藏在其他的析构函数调用的方法里，而不仅是直接写在函数中。</p>
 <p>上面的几个例子里，<code>&amp;'a u8</code>都在析构函数里被访问了。如果给它添加<code>#[may_dangle]</code>属性，这些类型很可能会产生借用检查器无法捕捉的错误，引发不可预料的灾难。所以最好能避免使用这个属性。</p>
+<h2><a class="header" href="#有关顺序的相关说明" id="有关顺序的相关说明">有关顺序的相关说明</a></h2>
+<p>虽然定义了结构内部字段的销毁顺序，但是依赖它是脆弱而微妙的。当顺序很重要时，最好使用<a href="https://doc.rust-lang.org/std/mem/struct.ManuallyDrop.html"><code>ManuallyDrop</code></a>包装器。</p>
 <h2><a class="header" href="#drop检查的故事讲完了吗" id="drop检查的故事讲完了吗">drop检查的故事讲完了吗？</a></h2>
 <p>我们发现，在写非安全代码时，其实并不用关心是否满足drop检查器的要求。不过有一个特殊的场景是例外的，我们将在下一章讲到它。</p>
 <p>原文地址：<a href="https://doc.rust-lang.org/nomicon/phantom-data.html">https://doc.rust-lang.org/nomicon/phantom-data.html</a></p>
 <h1><a class="header" href="#phantomdata幽灵数据" id="phantomdata幽灵数据">PhantomData（幽灵数据）</a></h1>
 <p>在编写非安全代码时，我们常常遇见这种情况：类型或生命周期逻辑上与一个结构体关联起来了，但是却不属于结构体的任何一个成员。这种情况对于生命周期尤为常见。比如，<code>&amp;'a [T]</code>的<code>Iter</code>大概是这么定义的：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>struct Iter&lt;'a, T: 'a&gt; {
@@ -1454,8 +1644,8 @@ impl&lt;T: fmt::Display&gt; Drop for Inspector&lt;T&gt; {
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>但是，因为<code>'a</code>没有在结构体内被使用，它是无界的。由于一些历史原因，无界生命周期和类型禁止出现在结构体定义中。所以我们必须想办法在结构体内用到这些类型，这也是正确的变性检查和drop检查的必要条件。</p>
-<p>我们使用一个特殊的标志类型<code>PhantomData</code>做到这一点。<code>PhantomData</code>不消耗存储空间，它只是模拟了某种类型的数据，以方便静态分析。这么做比显式地告诉类型系统你需要的变性更不容易出错，而且还能提供drop检查需要的信息。</p>
+<p>但是，因为<code>'a</code>没有在结构体内被使用，它是<em>无界的</em>。由于一些历史原因，无界生命周期和类型<em>禁止</em>出现在结构体定义中。所以我们必须想办法在结构体内用到这些类型，这也是正确的变性检查和drop检查的必要条件。</p>
+<p>我们使用一个特殊的标志类型<code>PhantomData</code>做到这一点。<code>PhantomData</code>不消耗存储空间，它只是模拟了某种类型的数据，以方便静态分析。这么做比显式地告诉类型系统你需要的变性更不容易出错，而且还能提供其他有用信息，比如drop检查需要的信息。</p>
 <p><code>Iter</code>逻辑上包含一系列<code>&amp;'a T</code>，所以我们用<code>PhantomData</code>这样去模拟它：</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
@@ -1501,7 +1691,7 @@ struct Vec&lt;T&gt; {
 <p>让裸指针拥有数据是一个很普遍的设计，以至于标准库为它自己创造了一个叫<code>Unique&lt;T&gt;</code>的组件，它可以：</p>
 <ul>
 <li>封装一个<code>*const T</code>处理变性</li>
-<li>包含一个PhantomData<T></li>
+<li>包含一个 <code>PhantomData&lt;T&gt;</code></li>
 <li>自动实现<code>Send</code>/<code>Sync</code>，模拟和包含T时一样的行为</li>
 <li>将指针标记为<code>NonZero</code>以便空指针优化</li>
 </ul>
@@ -1513,12 +1703,11 @@ struct Vec&lt;T&gt; {
 <tr><td><code>PhantomData&lt;&amp;'a mut T&gt;</code></td><td>协变</td><td>不变</td></tr>
 <tr><td><code>PhantomData&lt;*const T&gt;</code></td><td>-</td><td>协变</td></tr>
 <tr><td><code>PhantomData&lt;*mut T&gt;</code></td><td>-</td><td>不变</td></tr>
-<tr><td><code>PhantomData&lt;fn(T)&gt;</code></td><td>-</td><td>逆变(*)</td></tr>
+<tr><td><code>PhantomData&lt;fn(T)&gt;</code></td><td>-</td><td>逆变</td></tr>
 <tr><td><code>PhantomData&lt;fn() -&gt; T</code></td><td>-</td><td>协变</td></tr>
 <tr><td><code>PhantomData&lt;fn(T) -&gt; T&gt;</code></td><td>-</td><td>不变</td></tr>
 <tr><td><code>PhantomData&lt;Cell&lt;&amp;'a ()&gt;&gt;</code></td><td>不变</td><td>-</td></tr>
 </tbody></table>
-<p>(*)如果发生变性的冲突，这个是不变的</p>
 <p>原文链接：<a href="https://doc.rust-lang.org/nomicon/borrow-splitting.html">https://doc.rust-lang.org/nomicon/borrow-splitting.html</a></p>
 <h1><a class="header" href="#分解借用" id="分解借用">分解借用</a></h1>
 <p>可变引用的Mutex属性在处理复合类型时能力非常有限。借用检查器只能理解一些简单的东西，而且极易失败。他对结构体还算是充分了解，知道结构体的成员可能被分别借用。所以这段代码现在可以正常工作：</p>
@@ -1542,7 +1731,7 @@ println!(&quot;{} {} {} {}&quot;, a, b, c, c2);
 <span class="boring">}
 </span></code></pre></pre>
 <p>但是，借用检查器对于数组和slice的理解却是一团浆糊，所以这段代码无法通过检查：</p>
-<pre><pre class="playground"><code class="language-rust">
+<pre><pre class="playground"><code class="language-rust compile_fail">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut x = [1, 2, 3];
@@ -1551,37 +1740,42 @@ let b = &amp;mut x[1];
 println!(&quot;{} {}&quot;, a, b);
 <span class="boring">}
 </span></code></pre></pre>
-<pre><code>&lt;anon&gt;:4:14: 4:18 error: cannot borrow `x[..]` as mutable more than once at a time
-&lt;anon&gt;:4 let b = &amp;mut x[1];
-                      ^~~~
-&lt;anon&gt;:3:14: 3:18 note: previous borrow of `x[..]` occurs here; the mutable borrow prevents subsequent moves, borrows, or modification of `x[..]` until the borrow ends
-&lt;anon&gt;:3 let a = &amp;mut x[0];
-                      ^~~~
-&lt;anon&gt;:6:2: 6:2 note: previous borrow ends here
-&lt;anon&gt;:1 fn main() {
-&lt;anon&gt;:2 let mut x = [1, 2, 3];
-&lt;anon&gt;:3 let a = &amp;mut x[0];
-&lt;anon&gt;:4 let b = &amp;mut x[1];
-&lt;anon&gt;:5 println!(&quot;{} {}&quot;, a, b);
-&lt;anon&gt;:6 }
-         ^
-error: aborting due to 2 previous errors
+<pre><code class="language-text">error[E0499]: cannot borrow `x[..]` as mutable more than once at a time
+ --&gt; src/lib.rs:4:18
+  |
+3 |     let a = &amp;mut x[0];
+  |                  ---- first mutable borrow occurs here
+4 |     let b = &amp;mut x[1];
+  |                  ^^^^ second mutable borrow occurs here
+5 |     println!(&quot;{} {}&quot;, a, b);
+6 | }
+  | - first borrow ends here
+
+error: aborting due to previous error
 </code></pre>
-<p>借用检查器连这个简单的场景都理解不了，那它更不可能理解一些通用容器类型了，比如说树，尤其是出现不同的键对应相同的值的时候。</p>
+<p>借用检查器连这个简单的场景都理解不了，那它更不可能理解一些通用容器类型了，比如说树，尤其是出现不同的键<em>确实</em>对应相同的值的时候。</p>
 <p>为了能“教育”借用检查器我们的所作所为是正确的，我们还是要使用非安全代码。比如，可变slice暴露了一个<code>split_at_mut</code>的方法，它接收一个slice然后返回两个可变slice。一个包括索引值左边所有的值，另一个包含右边所有的值。我们知道这个方法是安全的，因为两个slice没有重叠部分，也就不会出现别名问题。但是它的实现还是要涉及到非安全的内容：</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
+</span><span class="boring">use std::slice::from_raw_parts_mut;
+</span><span class="boring">struct FakeSlice&lt;T&gt;(T);
+</span><span class="boring">impl&lt;T&gt; FakeSlice&lt;T&gt; {
+</span><span class="boring">fn len(&amp;self) -&gt; usize { unimplemented!() }
+</span><span class="boring">fn as_mut_ptr(&amp;mut self) -&gt; *mut T { unimplemented!() }
+</span>pub fn split_at_mut(&amp;mut self, mid: usize) -&gt; (&amp;mut [T], &amp;mut [T]) {
     let len = self.len();
     let ptr = self.as_mut_ptr();
-    assert!(mid &lt;= len);
+
     unsafe {
-        (from_raw_parts_mut(ptr, mid)),
-         from_raw_parts_mut(ptr.offset(mid as isize), len - mid))
+        assert!(mid &lt;= len);
+
+        (from_raw_parts_mut(ptr, mid),
+         from_raw_parts_mut(ptr.add(mid), len - mid))
     }
 }
 <span class="boring">}
+</span><span class="boring">}
 </span></code></pre></pre>
 <p>这有一点难懂。为了避免两个<code>&amp;mut</code>指向相同的值，我们通过裸指针显式创建了两个全新的slice。</p>
 <p>不过迭代器产生可变引用的方法更加难懂。迭代器trait的定义如下：</p>
@@ -1595,9 +1789,9 @@ error: aborting due to 2 previous errors
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>这份定义里，<code>Self::Item</code>与<code>slef</code>没有直接关系。也就是说我们可以连续调用<code>next</code>很多次，并且同时保存着所有的结果。对于值的迭代器这么做完全可以，完全符合语义。对于共享引用这么做也没什么问题，因为允许任意过个共享引用指向同一个值（当然迭代器本身需要是独立于被共享内容的对象）。</p>
+<p>这份定义里，<code>Self::Item</code>与<code>slef</code><em>没有</em>直接关系。也就是说我们可以连续调用<code>next</code>很多次，并且<em>同时</em>保存着所有的结果。对于值的迭代器这么做完全可以，完全符合语义。对于共享引用这么做也没什么问题，因为允许任意过个共享引用指向同一个值（当然迭代器本身需要是独立于被共享内容的对象）。</p>
 <p>但是可变引用就麻烦了。乍一看，可变引用完全不适用这个API，因为那会产生多个指向相同对象的可变引用。</p>
-<p>可实际上它能够正常工作，这是因为迭代器是一个一次性对象。<code>IterMut</code>生成的东西最多只会生成一次，所以实际上我们没有生成多个指向相同数据的可变指针。</p>
+<p>可实际上它<em>能够</em>正常工作，这是因为迭代器是一个一次性对象。<code>IterMut</code>生成的东西最多只会生成一次，所以实际上我们没有生成多个指向相同数据的可变指针。</p>
 <p>更不可思议的是，可变迭代器对于许多类型的实现甚至不需要非安全代码！</p>
 <p>例如，下面是单向列表的代码：</p>
 <pre><pre class="playground"><code class="language-rust">
