@@ -16,7 +16,7 @@ jobs:
 
       - name: Install and Build 🔧 
         run: |
-          cargo install mdbook
+          cargo install --git https://github.com/qiwihui/mdBook.git --branch enrich mdbook
           mdbook build
           echo "nomicon.qiwihui.com" > book/CNAME
 
